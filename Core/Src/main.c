@@ -25,6 +25,8 @@
 #include <stdio.h>
 //#include <iostream>
 #include <string.h>
+#include "main_cpp.hpp"
+#include "BufferC.hpp"
 
 //using namespace std;
 
@@ -46,15 +48,19 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+DMA_HandleTypeDef hdma_adc1;
 
 DAC_HandleTypeDef hdac;
 
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
-uint8_t UART3_rxBuffer[12] = {0};
-
 /* USER CODE BEGIN PV */
+#define UART_BUF_LEN 255
+unsigned char UART3_rxBuffer[UART_BUF_LEN];
+
+#define ADC_BUF_LEN 2
+uint32_t adc_buf[ADC_BUF_LEN];
 
 /* USER CODE END PV */
 
@@ -64,6 +70,7 @@ static void MX_GPIO_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_DMA_Init(void);
 static void MX_DAC_Init(void);
 /* USER CODE BEGIN PFP */
 
@@ -75,6 +82,7 @@ static void MX_DAC_Init(void);
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
     HAL_UART_Transmit(huart, UART3_rxBuffer, 1, 100);
+    serial_add_char(UART3_rxBuffer[0]);
     HAL_UART_Receive_IT(huart, UART3_rxBuffer, 1);
 }
 
@@ -90,15 +98,6 @@ void printString(char * str, int size)
 	char buffer [size+1];
 	buffer [size] = '\0';
 	HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
-}
-
-void printVals(int d[])
-{
-	//char buffer [50];
-	//sprintf (buffer, "%d\n", d);
-    //
-    //
-	//HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
 }
 
 
@@ -128,32 +127,38 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
 
+  // !!! DMA to be initialised before ADC and other peripherals !!! ////////
+
   /* USER CODE END SysInit */
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_DMA_Init();
   MX_ADC1_Init();
   MX_USART3_UART_Init();
+
   MX_DAC_Init();
   /* USER CODE BEGIN 2 */
 
-  HAL_ADC_Start(&hadc1);
+  // !!! Start UART before ADC  !!! ////////
+  HAL_UART_Receive_IT(&huart3, UART3_rxBuffer, 1);
+  HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUF_LEN);
+
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  HAL_UART_Receive_IT(&huart3, UART3_rxBuffer, 1);
 
-  int i = 0;
-
+  //int i = 0;
   while (1)
   {
-
-	  printVal(i);
-	  i++;
-	/* USER CODE END WHILE */
+	  HAL_Delay(1);
+	  //printVal(i);
+	  //i++;
+	  //(void) main_cpp();
+    /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
   }
@@ -228,14 +233,14 @@ static void MX_ADC1_Init(void)
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
   hadc1.Init.Resolution = ADC_RESOLUTION_12B;
-  hadc1.Init.ScanConvMode = ADC_SCAN_DISABLE;
+  hadc1.Init.ScanConvMode = ADC_SCAN_ENABLE;
   hadc1.Init.ContinuousConvMode = ENABLE;
   hadc1.Init.DiscontinuousConvMode = DISABLE;
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 1;
-  hadc1.Init.DMAContinuousRequests = DISABLE;
+  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
   hadc1.Init.Overrun = ADC_OVR_DATA_OVERWRITTEN;
@@ -251,6 +256,14 @@ static void MX_ADC1_Init(void)
   sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -368,6 +381,22 @@ static void MX_USART3_UART_Init(void)
   /* USER CODE BEGIN USART3_Init 2 */
 
   /* USER CODE END USART3_Init 2 */
+
+}
+
+/**
+  * Enable DMA controller clock
+  */
+static void MX_DMA_Init(void)
+{
+
+  /* DMA controller clock enable */
+  __HAL_RCC_DMA1_CLK_ENABLE();
+
+  /* DMA interrupt init */
+  /* DMA1_Channel1_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 
