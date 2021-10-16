@@ -78,8 +78,8 @@ all: main-build
 main-build: Sandbox.elf secondary-outputs
 
 # Tool invocations
-Sandbox.elf: $(OBJS) $(USER_OBJS) /home/cedric/st_workspace/Sandbox/STM32F302R8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-g++ -o "Sandbox.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/cedric/st_workspace/Sandbox/STM32F302R8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Sandbox.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
+Sandbox.elf: $(OBJS) $(USER_OBJS) C:\Users\cedqu\workspace_hw\Sandbox\STM32F302R8TX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-g++ -o "Sandbox.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"C:\Users\cedqu\workspace_hw\Sandbox\STM32F302R8TX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Sandbox.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -lstdc++ -lsupc++ -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

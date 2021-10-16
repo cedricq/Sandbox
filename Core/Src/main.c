@@ -59,8 +59,10 @@ UART_HandleTypeDef huart3;
 #define UART_BUF_LEN 255
 unsigned char UART3_rxBuffer[UART_BUF_LEN];
 
-#define ADC_BUF_LEN 2
+#define ADC_BUF_LEN 4
 uint32_t adc_buf[ADC_BUF_LEN];
+
+uint32_t cmd_target = 2500;
 
 /* USER CODE END PV */
 
@@ -86,11 +88,11 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     HAL_UART_Receive_IT(huart, UART3_rxBuffer, 1);
 }
 
-void printVal(int d)
+void printVal(int out, int a, int b, int c, int d)
 {
-	char buffer [50];
-	sprintf (buffer, "%d\n", d);
-	HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
+    char buffer [50];
+    sprintf (buffer, "%d %d %d %d %d\n", out, a, b, c, d);
+    HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
 }
 
 void printString(char * str, int size)
@@ -128,6 +130,12 @@ int main(void)
   /* USER CODE BEGIN SysInit */
 
   // !!! DMA to be initialised before ADC and other peripherals !!! ////////
+  //MX_GPIO_Init();
+  //MX_USART2_UART_Init();
+  //MX_DMA_Init();
+  //MX_ADC1_Init();
+  //MX_USART3_UART_Init();
+  //MX_DAC_Init();
 
   /* USER CODE END SysInit */
 
@@ -137,7 +145,6 @@ int main(void)
   MX_DMA_Init();
   MX_ADC1_Init();
   MX_USART3_UART_Init();
-
   MX_DAC_Init();
   /* USER CODE BEGIN 2 */
 
@@ -151,12 +158,16 @@ int main(void)
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
 
-  //int i = 0;
   while (1)
   {
-	  HAL_Delay(1);
-	  //printVal(i);
-	  //i++;
+	  HAL_Delay(10);
+
+	  cmd_target += 10;
+	  cmd_target = cmd_target % 4096;
+	  DAC1->DHR12R1 = cmd_target;
+
+	  printVal(cmd_target, adc_buf[0], adc_buf[1], adc_buf[2], adc_buf[3]);
+
 	  //(void) main_cpp();
     /* USER CODE END WHILE */
 
@@ -239,7 +250,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
   hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
-  hadc1.Init.NbrOfConversion = 2;
+  hadc1.Init.NbrOfConversion = 4;
   hadc1.Init.DMAContinuousRequests = ENABLE;
   hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
   hadc1.Init.LowPowerAutoWait = DISABLE;
@@ -253,7 +264,7 @@ static void MX_ADC1_Init(void)
   sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
-  sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
+  sConfig.SamplingTime = ADC_SAMPLETIME_7CYCLES_5;
   sConfig.OffsetNumber = ADC_OFFSET_NONE;
   sConfig.Offset = 0;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
@@ -264,6 +275,22 @@ static void MX_ADC1_Init(void)
   */
   sConfig.Channel = ADC_CHANNEL_2;
   sConfig.Rank = ADC_REGULAR_RANK_2;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_6;
+  sConfig.Rank = ADC_REGULAR_RANK_3;
+  if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /** Configure Regular Channel
+  */
+  sConfig.Channel = ADC_CHANNEL_7;
+  sConfig.Rank = ADC_REGULAR_RANK_4;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -308,7 +335,7 @@ static void MX_DAC_Init(void)
   }
   /* USER CODE BEGIN DAC_Init 2 */
 
-  DAC1->DHR12R1 = 2482;
+  DAC1->DHR12R1 = cmd_target;
   HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
   /* USER CODE END DAC_Init 2 */
 
@@ -395,8 +422,8 @@ static void MX_DMA_Init(void)
 
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  //HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
+  //HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 
