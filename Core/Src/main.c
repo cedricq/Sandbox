@@ -69,6 +69,18 @@ uint32_t adc_buf[ADC_BUF_LEN];
 #define A6_PC0_I_MOT    2
 #define A7_PC1_S_MOT    3
 
+#define SFM3219_ADDRESS     0x2E
+#define SFM3219_START_AIR   0x3608
+
+typedef enum{
+    I2C_INIT = 0,
+    I2C_READ = 1
+}i2c_states;
+
+uint8_t i2c_cnt_errors = 0;
+uint32_t rawQout = 0;
+
+
 
 uint32_t cmd_target = 2500;
 
@@ -97,10 +109,15 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
     HAL_UART_Receive_IT(huart, UART3_rxBuffer, 1);
 }
 
-void printVal(int out, int a, int b, int c, int d)
+void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
-    char buffer [50];
-    sprintf (buffer, "%d %d %d %d %d\n", out, a, b, c, d);
+  // RX Done .. Do Something!
+}
+
+void printVal(int out, int a, int b, int c, int d, int e)
+{
+    char buffer [60];
+    sprintf (buffer, "%d %d %d %d %d %d\n", out, a, b, c, d, e);
     HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
 }
 
@@ -109,6 +126,16 @@ void printString(char * str, int size)
 	char buffer [size+1];
 	buffer [size] = '\0';
 	HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
+}
+
+void Tick_1ms()
+{
+
+    //I2C reading
+    //HAL_I2C_Master_Transmit_IT (I2C_HandleTypeDef * hi2c, uint16_t DevAddress, uint8_t * pData, uint16_t Size);
+    //HAL_I2C_Master_Receive_IT (&hi2c1, 0x2E, rcv_txt, 2);
+    //HAL_I2C_IsDeviceReady (I2C_HandleTypeDef * hi2c, uint16_t DevAddress, uint32_t Trials, uint32_t Timeout);
+
 }
 
 
@@ -157,28 +184,84 @@ int main(void)
   MX_ADC1_Init();
   MX_USART3_UART_Init();
   MX_DAC_Init();
-  //MX_I2C1_Init();
+  MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
 
   // !!! Start UART before ADC  !!! ////////
   HAL_UART_Receive_IT(&huart3, UART3_rxBuffer, 1);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUF_LEN);
 
+  uint8_t test[3] = {0xBE, 0xEF, 0x00};
+  uint8_t crc = SF04_CalcCrc (test, 2);
+  test[2] = crc;
+
+  uint8_t cmd[3] = {0x36, 0x08, 0x00};
+  crc = SF04_CalcCrc (cmd, 2);
+  cmd[2] = crc;
+
+  uint8_t cmd_status[3] = {0xE1, 0x02, 0x00};
+  crc = SF04_CalcCrc (cmd_status, 2);
+  cmd_status[2] = crc;
+
+  HAL_Delay(200);
+
+  uint8_t i2c_state = I2C_INIT;
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
+  char buffer [50];
   while (1)
   {
 	  HAL_Delay(10);
+
+	  if (i2c_state == I2C_INIT)
+	  {
+	      uint8_t status = 0;
+	      HAL_Delay(100);
+          status = HAL_I2C_Master_Transmit(&hi2c1, SFM3219_ADDRESS<<1, cmd, 3, 1000);
+          if (status == HAL_OK)
+          {
+              i2c_cnt_errors = 0;
+              i2c_state = I2C_READ;
+          }
+          else
+          {
+              i2c_cnt_errors += 1;
+              sprintf (buffer, "!!! I2C Init Failure\n\0");
+              HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
+          }
+	  }
+	  else if (i2c_state == I2C_READ)
+	  {
+	      uint8_t status = 0;
+	      uint8_t i2c_rcv_buff[3] = {0x00, 0x00, 0x00};
+	      status = HAL_I2C_Master_Receive(&hi2c1, SFM3219_ADDRESS<<1, i2c_rcv_buff, 3, 1000);
+
+	      if (status == HAL_OK)
+          {
+	          rawQout = ((uint32_t)i2c_rcv_buff[0])<<8 | i2c_rcv_buff[0];
+	          i2c_cnt_errors = 0;
+          }
+          else
+          {
+              rawQout = 0xFFFFFF;
+              i2c_cnt_errors += 1;
+              sprintf (buffer, "!!! I2C Reading Failure\n\0");
+              HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
+          }
+	      if (i2c_cnt_errors > 20)
+	      {
+	          i2c_state = I2C_INIT;
+	      }
+	  }
 
 	  cmd_target += 10;
 	  cmd_target = cmd_target % 4096;
 	  DAC1->DHR12R1 = cmd_target;
 
-	  printVal(cmd_target, adc_buf[0], adc_buf[1], adc_buf[2], adc_buf[3]);
+	  printVal(cmd_target, adc_buf[0], adc_buf[1], adc_buf[2], adc_buf[3], rawQout);
 
 	  //(void) main_cpp();
     /* USER CODE END WHILE */

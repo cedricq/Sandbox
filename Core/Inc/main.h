@@ -55,6 +55,8 @@ void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 
+void Tick_1ms();
+
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
