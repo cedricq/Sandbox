@@ -22,6 +22,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "crc.h"
 #include <stdio.h>
 //#include <iostream>
 #include <string.h>
@@ -78,10 +79,10 @@ typedef enum{
 }i2c_states;
 
 uint8_t i2c_cnt_errors = 0;
-uint32_t rawQout = 0;
+int32_t rawQout = 0;
 
 #define MEASURES_BUF_LEN 5
-uint32_t Measures[MEASURES_BUF_LEN];
+int32_t Measures[MEASURES_BUF_LEN];
 #define MEAS_POUT     0
 #define MEAS_QOUT     1
 #define MEAS_XXXX     2
@@ -120,28 +121,28 @@ void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c)
   // RX Done .. Do Something!
 }
 
-void printVal_6(int out, int a, int b, int c, int d, int e)
+void printVal_6(int32_t out, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e)
 {
     char buffer [60];
     sprintf (buffer, "%d %d %d %d %d %d\n", out, a, b, c, d, e);
     HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
 }
 
-void printVal_5(int out, int a, int b, int c, int d)
+void printVal_5(int32_t out, int32_t a, int32_t b, int32_t c, int32_t d)
 {
     char buffer [60];
     sprintf (buffer, "%d %d %d %d %d\n", out, a, b, c, d);
     HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
 }
 
-void printVal_4(int out, int a, int b, int c)
+void printVal_4(int32_t out, int32_t a, int32_t b, int32_t c)
 {
     char buffer [60];
     sprintf (buffer, "%d %d %d %d\n", out, a, b, c);
     HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
 }
 
-void printString(char * str, int size)
+void printString(char * str, uint32_t size)
 {
 	char buffer [size+1];
 	buffer [size] = '\0';
@@ -278,8 +279,11 @@ int main(void)
 
 	      if (status == HAL_OK)
           {
-	          rawQout = ((uint32_t)i2c_rcv_buff[0])<<8 | i2c_rcv_buff[0];
-	          i2c_cnt_errors = 0;
+	          if (SF04_CheckCrc (i2c_rcv_buff, 2, i2c_rcv_buff[2]) != CHECKSUM_ERROR)
+	          {
+	              rawQout = (int16_t)(((uint16_t)i2c_rcv_buff[0])<<8 | i2c_rcv_buff[0]);
+	              i2c_cnt_errors = 0;
+	          }
           }
           else
           {
@@ -300,8 +304,8 @@ int main(void)
 
 	  //printVal(cmd_target, adc_buf[0], adc_buf[1], adc_buf[2], adc_buf[3], rawQout);
 
-	  Measures[MEAS_POUT]   = RawToCalOffset(adc_buf[ADC_A1_PA0_POUT], 0, 1000);
-	  Measures[MEAS_QOUT]   = RawToCalOffset(rawQout, 40863, 1000);
+	  Measures[MEAS_POUT]   = RawToCalOffset(adc_buf[ADC_A1_PA0_POUT], 2047, 42);
+	  Measures[MEAS_QOUT]   = RawToCalOffset(rawQout, -24576, 588);
 	  Measures[MEAS_S_MOT]  = RawToCal(adc_buf[ADC_A7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC);
 	  Measures[MEAS_I_MOT]  = RawToCal(adc_buf[ADC_A6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC);
 

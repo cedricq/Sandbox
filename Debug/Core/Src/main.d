@@ -30,7 +30,7 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_pwr_ex.h \
  ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_uart.h \
  ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_uart_ex.h \
- ../Application/MainCpp/inc/main_cpp.hpp \
+ ../Core/Inc/crc.h ../Application/MainCpp/inc/main_cpp.hpp \
  ../Application/Serial/inc/BufferC.hpp
 
 ../Core/Inc/main.h:
@@ -96,6 +96,8 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
 ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_uart.h:
 
 ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_uart_ex.h:
+
+../Core/Inc/crc.h:
 
 ../Application/MainCpp/inc/main_cpp.hpp:
 

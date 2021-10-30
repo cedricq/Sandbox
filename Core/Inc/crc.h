@@ -10,9 +10,9 @@
 
 #include <stdint.h>
 
-typedef enum{
+enum{
     CHECKSUM_ERROR = 0X04
-}etError;
+};
 
 uint8_t SF04_CheckCrc (uint8_t data[], uint8_t nbrOfBytes, uint8_t checksum);
 uint8_t SF04_CalcCrc (uint8_t data[], uint8_t nbrOfBytes);
