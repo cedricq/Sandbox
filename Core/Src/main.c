@@ -64,10 +64,10 @@ unsigned char UART3_rxBuffer[UART_BUF_LEN];
 #define ADC_BUF_LEN 4
 uint32_t adc_buf[ADC_BUF_LEN];
 
-#define A1_PA0_POUT     0
-#define A2_PA1_XXXX     1
-#define A6_PC0_I_MOT    2
-#define A7_PC1_S_MOT    3
+#define ADC_A1_PA0_POUT     0
+#define ADC_A2_PA1_XXXX     1
+#define ADC_A6_PC0_I_MOT    2
+#define ADC_A7_PC1_S_MOT    3
 
 #define SFM3219_ADDRESS     0x2E
 #define SFM3219_START_AIR   0x3608
@@ -80,7 +80,13 @@ typedef enum{
 uint8_t i2c_cnt_errors = 0;
 uint32_t rawQout = 0;
 
-
+#define MEASURES_BUF_LEN 5
+uint32_t Measures[MEASURES_BUF_LEN];
+#define MEAS_POUT     0
+#define MEAS_QOUT     1
+#define MEAS_XXXX     2
+#define MEAS_I_MOT    3
+#define MEAS_S_MOT    4
 
 uint32_t cmd_target = 2500;
 
@@ -114,10 +120,24 @@ void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c)
   // RX Done .. Do Something!
 }
 
-void printVal(int out, int a, int b, int c, int d, int e)
+void printVal_6(int out, int a, int b, int c, int d, int e)
 {
     char buffer [60];
     sprintf (buffer, "%d %d %d %d %d %d\n", out, a, b, c, d, e);
+    HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
+}
+
+void printVal_5(int out, int a, int b, int c, int d)
+{
+    char buffer [60];
+    sprintf (buffer, "%d %d %d %d %d\n", out, a, b, c, d);
+    HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
+}
+
+void printVal_4(int out, int a, int b, int c)
+{
+    char buffer [60];
+    sprintf (buffer, "%d %d %d %d\n", out, a, b, c);
     HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
 }
 
@@ -138,6 +158,23 @@ void Tick_1ms()
 
 }
 
+const int32_t MAX_CURRENT   = 300;
+const int32_t MAX_SPEED     = 60000;
+const int32_t MAX_RAW_ADC   = 4095;
+const int32_t MAX_RAW_I2C   = 0xFFFF;
+
+const int32_t PRESSURE_OFFSET   = 300;
+const int32_t PRESSURE_GAIN     = 60000;
+
+int32_t RawToCalOffset(int32_t raw, int32_t offset, int32_t gain_1000)
+{
+    return (((raw - offset) * gain_1000) / 1000);
+}
+
+int32_t RawToCal(int32_t raw, int32_t max_cal, int32_t max_raw)
+{
+    return (raw * max_cal) / max_raw;
+}
 
 /* USER CODE END 0 */
 
@@ -261,7 +298,14 @@ int main(void)
 	  cmd_target = cmd_target % 4096;
 	  DAC1->DHR12R1 = cmd_target;
 
-	  printVal(cmd_target, adc_buf[0], adc_buf[1], adc_buf[2], adc_buf[3], rawQout);
+	  //printVal(cmd_target, adc_buf[0], adc_buf[1], adc_buf[2], adc_buf[3], rawQout);
+
+	  Measures[MEAS_POUT]   = RawToCalOffset(adc_buf[ADC_A1_PA0_POUT], 0, 1000);
+	  Measures[MEAS_QOUT]   = RawToCalOffset(rawQout, 40863, 1000);
+	  Measures[MEAS_S_MOT]  = RawToCal(adc_buf[ADC_A7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC);
+	  Measures[MEAS_I_MOT]  = RawToCal(adc_buf[ADC_A6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC);
+
+	  printVal_4(Measures[MEAS_POUT], Measures[MEAS_QOUT], Measures[MEAS_S_MOT], Measures[MEAS_I_MOT]);
 
 	  //(void) main_cpp();
     /* USER CODE END WHILE */
