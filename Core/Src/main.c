@@ -24,12 +24,9 @@
 /* USER CODE BEGIN Includes */
 #include "crc.h"
 #include <stdio.h>
-//#include <iostream>
 #include <string.h>
 #include "main_cpp.hpp"
 #include "BufferC.hpp"
-
-//using namespace std;
 
 /* USER CODE END Includes */
 
@@ -139,26 +136,6 @@ void printFloats(float in[], int size)
     HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
 }
 
-void printVal_6(int32_t out, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e)
-{
-    char buffer [60];
-    sprintf (buffer, "%d %d %d %d %d %d\n", out, a, b, c, d, e);
-    HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
-}
-
-void printVal_5(int32_t out, int32_t a, int32_t b, int32_t c, int32_t d)
-{
-    char buffer [60];
-    sprintf (buffer, "%d %d %d %d %d\n", out, a, b, c, d);
-    HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
-}
-
-void printVal_4(int32_t out, int32_t a, int32_t b, int32_t c)
-{
-    char buffer [60];
-    sprintf (buffer, "%d %d %d %d\n", out, a, b, c);
-    HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
-}
 
 void printString(char * str, uint32_t size)
 {
@@ -197,7 +174,7 @@ int32_t RawToCal(int32_t raw, int32_t max_cal, int32_t max_raw)
 
 void UpdatePWM(uint32_t per1000)
 {
-    TIM15->CCR1 = per1000;
+    TIM15->CCR1 = (per1000 * 2400) /1000;
 }
 
 /* USER CODE END 0 */
@@ -244,9 +221,9 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
-  MX_DMA_Init();
   MX_ADC1_Init();
   MX_USART3_UART_Init();
+  MX_DMA_Init();
   MX_DAC_Init();
   MX_I2C1_Init();
   MX_TIM15_Init();
@@ -333,9 +310,8 @@ int main(void)
 	  cmd_target = cmd_target % 4096;
 	  DAC1->DHR12R1 = cmd_target;
 
-	  UpdatePWM(cmd_target%200);
-
-	  //printVal(cmd_target, adc_buf[0], adc_buf[1], adc_buf[2], adc_buf[3], rawQout);
+	  //UpdatePWM(cmd_target%200);
+	  UpdatePWM(200);
 
 	  Measures[MEAS_POUT]   = RawToCalOffset(adc_buf[ADC_A1_PA0_POUT], 2047, 42);
 	  Measures[MEAS_QOUT]   = RawToCalOffset(rawQout, -24576, 588);
@@ -598,7 +574,7 @@ static void MX_TIM15_Init(void)
   htim15.Instance = TIM15;
   htim15.Init.Prescaler = 0;
   htim15.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim15.Init.Period = 1000;
+  htim15.Init.Period = 2400;
   htim15.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim15.Init.RepetitionCounter = 0;
   htim15.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -725,7 +701,7 @@ static void MX_DMA_Init(void)
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-  //HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 
@@ -808,4 +784,3 @@ void assert_failed(uint8_t *file, uint32_t line)
 }
 #endif /* USE_FULL_ASSERT */
 
-/************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
