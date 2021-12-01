@@ -55,6 +55,8 @@ DAC_HandleTypeDef hdac;
 
 I2C_HandleTypeDef hi2c1;
 
+TIM_HandleTypeDef htim15;
+
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
@@ -89,7 +91,7 @@ int32_t Measures[MEASURES_BUF_LEN];
 #define MEAS_I_MOT    3
 #define MEAS_S_MOT    4
 
-uint32_t cmd_target = 2500;
+uint32_t cmd_target = 100; //2500;
 
 /* USER CODE END PV */
 
@@ -102,6 +104,7 @@ static void MX_USART3_UART_Init(void);
 static void MX_DMA_Init(void);
 static void MX_DAC_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_TIM15_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -119,6 +122,21 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
   // RX Done .. Do Something!
+}
+
+
+void printFloats(float in[], int size)
+{
+    char buffer[80]="";
+
+    for (int i = 0; i < size; i++)
+    {
+        char txt[10];
+        sprintf(txt, "%.2f ", in[i]);
+        strcat(buffer, txt);
+    }
+    strcat(buffer, "\n");
+    HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
 }
 
 void printVal_6(int32_t out, int32_t a, int32_t b, int32_t c, int32_t d, int32_t e)
@@ -177,6 +195,11 @@ int32_t RawToCal(int32_t raw, int32_t max_cal, int32_t max_raw)
     return (raw * max_cal) / max_raw;
 }
 
+void UpdatePWM(uint32_t per1000)
+{
+    TIM15->CCR1 = per1000;
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -203,15 +226,18 @@ int main(void)
 
   /* USER CODE BEGIN SysInit */
 
-  // !!! DMA to be initialised before ADC and other peripherals !!! ////////
+  // TODO: !!! DMA to be initialised before ADC and other peripherals !!! ////////
   //MX_GPIO_Init();
   //MX_USART2_UART_Init();
   //MX_DMA_Init();
   //MX_ADC1_Init();
   //MX_USART3_UART_Init();
   //MX_DAC_Init();
+  //MX_I2C1_Init();
+  //MX_TIM15_Init();
 
-  // +++ Comment HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn); --> No interrupt required
+  HAL_NVIC_SetPriorityGrouping(NVIC_PRIORITYGROUP_4);
+  // ??? TODO: !!! Comment in MX_DMA_Init() : HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn); --> No interrupt required
 
   /* USER CODE END SysInit */
 
@@ -223,7 +249,12 @@ int main(void)
   MX_USART3_UART_Init();
   MX_DAC_Init();
   MX_I2C1_Init();
+  MX_TIM15_Init();
   /* USER CODE BEGIN 2 */
+
+  UpdatePWM(300);
+  TIM15->CCER |= TIM_CCER_CC1E;
+  HAL_TIMEx_PWMN_Start(&htim15, HAL_TIM_ACTIVE_CHANNEL_1);
 
   // !!! Start UART before ADC  !!! ////////
   HAL_UART_Receive_IT(&huart3, UART3_rxBuffer, 1);
@@ -252,7 +283,7 @@ int main(void)
   char buffer [50];
   while (1)
   {
-	  HAL_Delay(10);
+	  HAL_Delay(100);
 
 	  if (i2c_state == I2C_INIT)
 	  {
@@ -298,9 +329,11 @@ int main(void)
 	      }
 	  }
 
-	  cmd_target += 10;
+	  cmd_target += 2;
 	  cmd_target = cmd_target % 4096;
 	  DAC1->DHR12R1 = cmd_target;
+
+	  UpdatePWM(cmd_target%200);
 
 	  //printVal(cmd_target, adc_buf[0], adc_buf[1], adc_buf[2], adc_buf[3], rawQout);
 
@@ -309,7 +342,16 @@ int main(void)
 	  Measures[MEAS_S_MOT]  = RawToCal(adc_buf[ADC_A7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC);
 	  Measures[MEAS_I_MOT]  = RawToCal(adc_buf[ADC_A6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC);
 
-	  printVal_4(Measures[MEAS_POUT], Measures[MEAS_QOUT], Measures[MEAS_S_MOT], Measures[MEAS_I_MOT]);
+	  float tick = HAL_GetTick();
+	  tick /= 1000;
+
+	  float measures[5];
+	  measures[0] = tick;
+	  measures[1] = ((float)Measures[MEAS_QOUT])/100;
+	  measures[2] = ((float)Measures[MEAS_POUT]);
+	  measures[3] = ((float)Measures[MEAS_S_MOT]);
+	  measures[4] = ((float)Measures[MEAS_I_MOT])/100;
+	  printFloats(measures, 5);
 
 	  //(void) main_cpp();
     /* USER CODE END WHILE */
@@ -357,8 +399,10 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C1|RCC_PERIPHCLK_ADC1;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C1|RCC_PERIPHCLK_TIM15
+                              |RCC_PERIPHCLK_ADC1;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_HSI;
+  PeriphClkInit.Tim15ClockSelection = RCC_TIM15CLK_HCLK;
   PeriphClkInit.Adc1ClockSelection = RCC_ADC1PLLCLK_DIV1;
 
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
@@ -529,6 +573,73 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief TIM15 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM15_Init(void)
+{
+
+  /* USER CODE BEGIN TIM15_Init 0 */
+
+  /* USER CODE END TIM15_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+  TIM_OC_InitTypeDef sConfigOC = {0};
+  TIM_BreakDeadTimeConfigTypeDef sBreakDeadTimeConfig = {0};
+
+  /* USER CODE BEGIN TIM15_Init 1 */
+
+  /* USER CODE END TIM15_Init 1 */
+  htim15.Instance = TIM15;
+  htim15.Init.Prescaler = 0;
+  htim15.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim15.Init.Period = 1000;
+  htim15.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim15.Init.RepetitionCounter = 0;
+  htim15.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_PWM_Init(&htim15) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim15, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sConfigOC.OCMode = TIM_OCMODE_PWM1;
+  sConfigOC.Pulse = 0;
+  sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
+  sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
+  sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
+  sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
+  sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
+  if (HAL_TIM_PWM_ConfigChannel(&htim15, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  __HAL_TIM_DISABLE_OCxPRELOAD(&htim15, TIM_CHANNEL_1);
+  sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
+  sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
+  sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
+  sBreakDeadTimeConfig.DeadTime = 0;
+  sBreakDeadTimeConfig.BreakState = TIM_BREAK_DISABLE;
+  sBreakDeadTimeConfig.BreakPolarity = TIM_BREAKPOLARITY_HIGH;
+  sBreakDeadTimeConfig.BreakFilter = 0;
+  sBreakDeadTimeConfig.AutomaticOutput = TIM_AUTOMATICOUTPUT_DISABLE;
+  if (HAL_TIMEx_ConfigBreakDeadTime(&htim15, &sBreakDeadTimeConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM15_Init 2 */
+
+  /* USER CODE END TIM15_Init 2 */
+  HAL_TIM_MspPostInit(&htim15);
 
 }
 
