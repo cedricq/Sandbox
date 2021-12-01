@@ -88,7 +88,7 @@ int32_t Measures[MEASURES_BUF_LEN];
 #define MEAS_I_MOT    3
 #define MEAS_S_MOT    4
 
-uint32_t cmd_target = 100; //2500;
+uint32_t cmd_target = 100;
 
 /* USER CODE END PV */
 
@@ -162,9 +162,19 @@ const int32_t MAX_RAW_I2C   = 0xFFFF;
 const int32_t PRESSURE_OFFSET   = 300;
 const int32_t PRESSURE_GAIN     = 60000;
 
-int32_t RawToCalOffset(int32_t raw, int32_t offset, int32_t gain_1000)
+int32_t VoltageTo01mbar(int32_t volt)
 {
-    return (((raw - offset) * gain_1000) / 1000);
+    return ( ( ( volt - 33 ) * 13790 ) / 264 ) - 6895;
+}
+
+int32_t RawADCToVolt(int32_t raw)
+{
+    return raw * 330 / MAX_RAW_ADC;
+}
+
+int32_t RawSFM3019ToLmin(int32_t raw)
+{
+    return ( 100 * ( raw + 24576 ) ) / 170;
 }
 
 int32_t RawToCal(int32_t raw, int32_t max_cal, int32_t max_raw)
@@ -221,15 +231,15 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_USART2_UART_Init();
+  MX_DMA_Init();
   MX_ADC1_Init();
   MX_USART3_UART_Init();
-  MX_DMA_Init();
   MX_DAC_Init();
   MX_I2C1_Init();
   MX_TIM15_Init();
   /* USER CODE BEGIN 2 */
 
-  UpdatePWM(300);
+  UpdatePWM(cmd_target);
   TIM15->CCER |= TIM_CCER_CC1E;
   HAL_TIMEx_PWMN_Start(&htim15, HAL_TIM_ACTIVE_CHANNEL_1);
 
@@ -310,11 +320,10 @@ int main(void)
 	  cmd_target = cmd_target % 4096;
 	  DAC1->DHR12R1 = cmd_target;
 
-	  //UpdatePWM(cmd_target%200);
-	  UpdatePWM(200);
+	  UpdatePWM(cmd_target%200);
 
-	  Measures[MEAS_POUT]   = RawToCalOffset(adc_buf[ADC_A1_PA0_POUT], 2047, 42);
-	  Measures[MEAS_QOUT]   = RawToCalOffset(rawQout, -24576, 588);
+	  Measures[MEAS_POUT]   = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_A1_PA0_POUT] ) );
+	  Measures[MEAS_QOUT]   = RawSFM3019ToLmin(rawQout);
 	  Measures[MEAS_S_MOT]  = RawToCal(adc_buf[ADC_A7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC);
 	  Measures[MEAS_I_MOT]  = RawToCal(adc_buf[ADC_A6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC);
 
@@ -324,7 +333,7 @@ int main(void)
 	  float measures[5];
 	  measures[0] = tick;
 	  measures[1] = ((float)Measures[MEAS_QOUT])/100;
-	  measures[2] = ((float)Measures[MEAS_POUT]);
+	  measures[2] = ((float)Measures[MEAS_POUT])/100;
 	  measures[3] = ((float)Measures[MEAS_S_MOT]);
 	  measures[4] = ((float)Measures[MEAS_I_MOT])/100;
 	  printFloats(measures, 5);
@@ -701,7 +710,7 @@ static void MX_DMA_Init(void)
   /* DMA interrupt init */
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  //HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 
