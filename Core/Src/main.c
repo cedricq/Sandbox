@@ -56,6 +56,7 @@ TIM_HandleTypeDef htim15;
 
 UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
+DMA_HandleTypeDef hdma_usart3_tx;
 
 /* USER CODE BEGIN PV */
 #define UART_BUF_LEN 255
@@ -77,7 +78,6 @@ typedef enum{
     I2C_READ = 1
 }i2c_states;
 
-uint8_t i2c_cnt_errors = 0;
 int32_t rawQout = 0;
 
 #define MEASURES_BUF_LEN 5
@@ -88,7 +88,21 @@ int32_t Measures[MEASURES_BUF_LEN];
 #define MEAS_I_MOT    3
 #define MEAS_S_MOT    4
 
-uint32_t cmd_target = 100;
+char const* data_names[] =
+{
+        "time",
+        "qout",
+        "pout",
+        "mot_speed",
+        "mot_current"
+};
+
+uint32_t target_motor_speed     = 20000;    // 20000 rpm
+uint32_t target_motor_qout      = 1000;     // 10 L/min
+
+uint32_t cmd_motor              = 0; //100;  // 10%
+uint32_t cmd_peep               = 0; //200;  // 20%
+uint32_t cmd_valve              = 0;    // 0%
 
 /* USER CODE END PV */
 
@@ -109,19 +123,6 @@ static void MX_TIM15_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-    HAL_UART_Transmit(huart, UART3_rxBuffer, 1, 100);
-    serial_add_char(UART3_rxBuffer[0]);
-    HAL_UART_Receive_IT(huart, UART3_rxBuffer, 1);
-}
-
-void HAL_I2C_MasterRxCpltCallback (I2C_HandleTypeDef * hi2c)
-{
-  // RX Done .. Do Something!
-}
-
-
 void printFloats(float in[], int size)
 {
     char buffer[80]="";
@@ -133,25 +134,27 @@ void printFloats(float in[], int size)
         strcat(buffer, txt);
     }
     strcat(buffer, "\n");
-    HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
+    //HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
+    HAL_UART_Transmit_DMA(&huart3, buffer, strlen(buffer));
 }
 
 
-void printString(char * str, uint32_t size)
+void printFloatsTelePlot(float in[], char const* names[], int size)
 {
-	char buffer [size+1];
-	buffer [size] = '\0';
-	HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
-}
+    char buffer[256]="";
 
-void Tick_1ms()
-{
+    for (int i = 0; i < size; i++)
+    {
+        char txt[64];
+        sprintf(txt, ">%s:%.2f", names[i], in[i]);
+        strcat(buffer, txt);
+        strcat(buffer, "\r\n");
+    }
 
-    //I2C reading
-    //HAL_I2C_Master_Transmit_IT (I2C_HandleTypeDef * hi2c, uint16_t DevAddress, uint8_t * pData, uint16_t Size);
-    //HAL_I2C_Master_Receive_IT (&hi2c1, 0x2E, rcv_txt, 2);
-    //HAL_I2C_IsDeviceReady (I2C_HandleTypeDef * hi2c, uint16_t DevAddress, uint32_t Trials, uint32_t Timeout);
+    //sprintf(buffer, ">test:%d", 10);
+    //strcat(buffer, "\r\n");
 
+    HAL_UART_Transmit_DMA(&huart3, buffer, strlen(buffer));
 }
 
 const int32_t MAX_CURRENT   = 300;
@@ -182,9 +185,28 @@ int32_t RawToCal(int32_t raw, int32_t max_cal, int32_t max_raw)
     return (raw * max_cal) / max_raw;
 }
 
-void UpdatePWM(uint32_t per1000)
+void UpdatePWM1(uint32_t per1000)
 {
     TIM15->CCR1 = (per1000 * 2400) /1000;
+}
+
+void UpdatePWM2(uint32_t per1000)
+{
+    TIM15->CCR2 = (per1000 * 2400) /1000;
+}
+
+
+void Tick_1ms()
+{
+    // cmd_motor
+    // Calculate new target motor
+    // 3.3V - 4095 -> 45'000 rpm
+    int error = target_motor_qout - Measures[MEAS_QOUT];
+    int cmd_target_tmp = (int)cmd_motor + (error / 200);
+    if (cmd_target_tmp < 0) cmd_target_tmp = 0;
+    if (cmd_target_tmp > 4095) cmd_target_tmp = 4095;
+    cmd_motor = (uint32_t)cmd_target_tmp;
+    DAC1->DHR12R1 = cmd_motor%4096;
 }
 
 /* USER CODE END 0 */
@@ -239,8 +261,10 @@ int main(void)
   MX_TIM15_Init();
   /* USER CODE BEGIN 2 */
 
-  UpdatePWM(cmd_target);
+  UpdatePWM1(0);
+  UpdatePWM2(0);
   TIM15->CCER |= TIM_CCER_CC1E;
+  TIM15->CCER |= TIM_CCER_CC2E;
   HAL_TIMEx_PWMN_Start(&htim15, HAL_TIM_ACTIVE_CHANNEL_1);
 
   // !!! Start UART before ADC  !!! ////////
@@ -259,7 +283,7 @@ int main(void)
   crc = SF04_CalcCrc (cmd_status, 2);
   cmd_status[2] = crc;
 
-  HAL_Delay(200);
+  HAL_Delay(500);
 
   uint8_t i2c_state = I2C_INIT;
 
@@ -270,57 +294,33 @@ int main(void)
   char buffer [50];
   while (1)
   {
-	  HAL_Delay(100);
+	  HAL_Delay(10);
 
+	  rawQout = -24576;
 	  if (i2c_state == I2C_INIT)
 	  {
-	      uint8_t status = 0;
 	      HAL_Delay(100);
-          status = HAL_I2C_Master_Transmit(&hi2c1, SFM3219_ADDRESS<<1, cmd, 3, 1000);
+	      uint8_t status = HAL_I2C_Master_Transmit(&hi2c1, SFM3219_ADDRESS<<1, cmd, 3, 1000);
           if (status == HAL_OK)
           {
-              i2c_cnt_errors = 0;
               i2c_state = I2C_READ;
-          }
-          else
-          {
-              i2c_cnt_errors += 1;
-              sprintf (buffer, "!!! I2C Init Failure\n\0");
-              HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
           }
 	  }
 	  else if (i2c_state == I2C_READ)
 	  {
-	      uint8_t status = 0;
 	      uint8_t i2c_rcv_buff[3] = {0x00, 0x00, 0x00};
-	      status = HAL_I2C_Master_Receive(&hi2c1, SFM3219_ADDRESS<<1, i2c_rcv_buff, 3, 1000);
-
+	      uint8_t status = HAL_I2C_Master_Receive(&hi2c1, SFM3219_ADDRESS<<1, i2c_rcv_buff, 3, 1000);
 	      if (status == HAL_OK)
           {
 	          if (SF04_CheckCrc (i2c_rcv_buff, 2, i2c_rcv_buff[2]) != CHECKSUM_ERROR)
 	          {
 	              rawQout = (int16_t)(((uint16_t)i2c_rcv_buff[0])<<8 | i2c_rcv_buff[0]);
-	              i2c_cnt_errors = 0;
 	          }
           }
-          else
-          {
-              rawQout = 0xFFFFFF;
-              i2c_cnt_errors += 1;
-              sprintf (buffer, "!!! I2C Reading Failure\n\0");
-              HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
-          }
-	      if (i2c_cnt_errors > 20)
-	      {
-	          i2c_state = I2C_INIT;
-	      }
 	  }
 
-	  cmd_target += 2;
-	  cmd_target = cmd_target % 4096;
-	  DAC1->DHR12R1 = cmd_target;
-
-	  UpdatePWM(cmd_target%200);
+	  UpdatePWM1(cmd_valve);
+	  UpdatePWM2(cmd_peep);
 
 	  Measures[MEAS_POUT]   = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_A1_PA0_POUT] ) );
 	  Measures[MEAS_QOUT]   = RawSFM3019ToLmin(rawQout);
@@ -336,7 +336,8 @@ int main(void)
 	  measures[2] = ((float)Measures[MEAS_POUT])/100;
 	  measures[3] = ((float)Measures[MEAS_S_MOT]);
 	  measures[4] = ((float)Measures[MEAS_I_MOT])/100;
-	  printFloats(measures, 5);
+	  //printFloats(measures, 5);
+	  printFloatsTelePlot(measures, data_names, 5);
 
 	  //(void) main_cpp();
     /* USER CODE END WHILE */
@@ -509,7 +510,7 @@ static void MX_DAC_Init(void)
   }
   /* USER CODE BEGIN DAC_Init 2 */
 
-  DAC1->DHR12R1 = cmd_target;
+  DAC1->DHR12R1 = 0;
   HAL_DAC_Start(&hdac, DAC_CHANNEL_1);
   /* USER CODE END DAC_Init 2 */
 
@@ -609,6 +610,11 @@ static void MX_TIM15_Init(void)
     Error_Handler();
   }
   __HAL_TIM_DISABLE_OCxPRELOAD(&htim15, TIM_CHANNEL_1);
+  if (HAL_TIM_PWM_ConfigChannel(&htim15, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  __HAL_TIM_DISABLE_OCxPRELOAD(&htim15, TIM_CHANNEL_2);
   sBreakDeadTimeConfig.OffStateRunMode = TIM_OSSR_DISABLE;
   sBreakDeadTimeConfig.OffStateIDLEMode = TIM_OSSI_DISABLE;
   sBreakDeadTimeConfig.LockLevel = TIM_LOCKLEVEL_OFF;
@@ -679,7 +685,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 9600;
+  huart3.Init.BaudRate = 115200;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
@@ -711,6 +717,9 @@ static void MX_DMA_Init(void)
   /* DMA1_Channel1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
   //HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
+  /* DMA1_Channel2_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Channel2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Channel2_IRQn);
 
 }
 
