@@ -146,9 +146,9 @@ void printFloatsTelePlot(float in[], char const* names[], int size)
     for (int i = 0; i < size; i++)
     {
         char txt[64];
-        sprintf(txt, ">%s:%.2f", names[i], in[i]);
+        sprintf(txt, ">%s:%.2f ", names[i], in[i]);
         strcat(buffer, txt);
-        strcat(buffer, "\r\n");
+        strcat(buffer, " \r\n");
     }
 
     //sprintf(buffer, ">test:%d", 10);
@@ -195,18 +195,52 @@ void UpdatePWM2(uint32_t per1000)
     TIM15->CCR2 = (per1000 * 2400) /1000;
 }
 
+int CMD_MOTOR_INSPI     = 2500;
+int CMD_MOTOR_EXPI      = 500;
+
+int INSPI_TIME          = 1000;
+int EXPI_TIME           = 2000;
+
 
 void Tick_1ms()
 {
+    static int time = 0;
+    static int time_ini = 0;
+    static int time_duration = 0;
+
+    time += 1;
+
+    if ( (time - time_ini) > time_duration )
+    {
+        if (cmd_motor == CMD_MOTOR_INSPI)
+        {
+            cmd_motor = CMD_MOTOR_EXPI;
+            cmd_valve = 0;
+            time_duration = EXPI_TIME;
+        }
+        else
+        {
+            cmd_motor = CMD_MOTOR_INSPI;
+            cmd_valve = 999;
+            time_duration = INSPI_TIME;
+        }
+        time_ini = time;
+    }
+
     // cmd_motor
     // Calculate new target motor
     // 3.3V - 4095 -> 45'000 rpm
-    int error = target_motor_qout - Measures[MEAS_QOUT];
-    int cmd_target_tmp = (int)cmd_motor + (error / 200);
-    if (cmd_target_tmp < 0) cmd_target_tmp = 0;
-    if (cmd_target_tmp > 4095) cmd_target_tmp = 4095;
-    cmd_motor = (uint32_t)cmd_target_tmp;
+    //int error = target_motor_qout - Measures[MEAS_QOUT];
+    //int cmd_target_tmp = (int)cmd_motor + (error / 200);
+    //if (cmd_target_tmp < 0) cmd_target_tmp = 0;
+    //if (cmd_target_tmp > 4095) cmd_target_tmp = 4095;
+    //cmd_motor = (uint32_t)cmd_target_tmp;
+
     DAC1->DHR12R1 = cmd_motor%4096;
+
+    UpdatePWM1(cmd_valve);
+    UpdatePWM2(0);
+
 }
 
 /* USER CODE END 0 */
@@ -291,7 +325,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  char buffer [50];
+  //char buffer [50];
   while (1)
   {
 	  HAL_Delay(10);
@@ -319,9 +353,6 @@ int main(void)
           }
 	  }
 
-	  UpdatePWM1(cmd_valve);
-	  UpdatePWM2(cmd_peep);
-
 	  Measures[MEAS_POUT]   = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_A1_PA0_POUT] ) );
 	  Measures[MEAS_QOUT]   = RawSFM3019ToLmin(rawQout);
 	  Measures[MEAS_S_MOT]  = RawToCal(adc_buf[ADC_A7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC);
@@ -337,6 +368,7 @@ int main(void)
 	  measures[3] = ((float)Measures[MEAS_S_MOT]);
 	  measures[4] = ((float)Measures[MEAS_I_MOT])/100;
 	  //printFloats(measures, 5);
+
 	  printFloatsTelePlot(measures, data_names, 5);
 
 	  //(void) main_cpp();
