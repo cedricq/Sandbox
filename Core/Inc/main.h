@@ -62,6 +62,8 @@ void Tick_1ms();
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
+#define TIM15_PERIOD_TICKS 4800
+#define TIM2_PERIOD_TICKS 2400
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
 #define USART_TX_Pin GPIO_PIN_2
@@ -70,6 +72,8 @@ void Tick_1ms();
 #define USART_RX_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_13
 #define LD2_GPIO_Port GPIOB
+#define CmdQout_Pin GPIO_PIN_7
+#define CmdQout_GPIO_Port GPIOC
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
