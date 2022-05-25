@@ -79,8 +79,6 @@ typedef enum{
     I2C_READ = 1
 }i2c_states;
 
-int32_t rawQout = 0;
-int32_t offsetQout = -57;
 int32_t offsetPout = -366;
 
 #define MEASURES_BUF_LEN 5
@@ -209,14 +207,128 @@ int INSPI_TIME          = 1000;
 int EXPI_TIME           = 2000;
 
 
+uint8_t cmd[3] = {0x36, 0x08, 0x00};
+uint8_t crc = 0;
+uint8_t i2c_state = 0;
+uint8_t i2c_retry = 0;
+
+int32_t rawQout = 0;
+int32_t offsetQout = -57;
+
+void InitQoutSensor()
+{
+    crc = SF04_CalcCrc (cmd, 2);
+    cmd[2] = crc;
+
+    HAL_GPIO_WritePin(CmdQout_GPIO_Port, CmdQout_Pin, GPIO_PIN_SET);
+    i2c_state = I2C_INIT;
+}
+
+
+void ReadQoutSensor()
+{
+    static int tick_i2c = 0;
+    rawQout = -24576;
+
+    if (i2c_state == I2C_INIT)
+    {
+        if (tick_i2c <= 300)
+        {
+            HAL_GPIO_WritePin(CmdQout_GPIO_Port, CmdQout_Pin, GPIO_PIN_SET);
+        }
+        else if (tick_i2c <= 400)
+        {
+            HAL_GPIO_WritePin(CmdQout_GPIO_Port, CmdQout_Pin, GPIO_PIN_RESET);
+        }
+        else
+        {
+            uint8_t status = HAL_I2C_Master_Transmit(&hi2c1, SFM3219_ADDRESS<<1, cmd, 3, 1000);
+            if (status == HAL_OK)
+            {
+                i2c_state = I2C_READ;
+                i2c_retry = 0;
+            }
+            else
+            {
+                HAL_UART_Transmit(&huart3, "INIT_ERROR\n\0", strlen("INIT_ERROR\n\0"), 100);
+            }
+            tick_i2c = 0;
+        }
+        tick_i2c++;
+    }
+    else if (i2c_state == I2C_READ)
+    {
+        uint8_t i2c_rcv_buff[3] = {0x00, 0x00, 0x00};
+        uint8_t status = HAL_I2C_Master_Receive(&hi2c1, SFM3219_ADDRESS<<1, i2c_rcv_buff, 3, 1000);
+        if (status == HAL_OK)
+        {
+            if (SF04_CheckCrc (i2c_rcv_buff, 2, i2c_rcv_buff[2]) != CHECKSUM_ERROR)
+            {
+                rawQout = (int16_t)(((uint16_t)i2c_rcv_buff[0])<<8 | i2c_rcv_buff[0]);
+            }
+            else
+            {
+                HAL_UART_Transmit(&huart3, "CHECKSUM_ERROR\n\0", strlen("CHECKSUM_ERROR\n\0"), 100);
+                i2c_retry++;
+            }
+        }
+        else
+        {
+            HAL_UART_Transmit(&huart3, "READING_ERROR\n\0", strlen("READING_ERROR\n\0"), 100);
+            i2c_retry++;
+        }
+        if (i2c_retry >= 10)
+        {
+            tick_i2c = 0;
+            i2c_state = I2C_INIT;
+        }
+    }
+}
+
+
+void UpdateMeasurements()
+{
+    Measures[MEAS_POUT]   = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_A1_PA0_POUT] ), offsetPout );
+    Measures[MEAS_QOUT]   = RawSFM3019ToLmin(rawQout, offsetQout);
+    Measures[MEAS_S_MOT]  = RawToCal(adc_buf[ADC_A7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC);
+    Measures[MEAS_I_MOT]  = RawToCal(adc_buf[ADC_A6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC);
+}
+
+void PrintMeasurements()
+{
+    float tick = HAL_GetTick();
+    tick /= 1000;
+
+    float measures[5];
+    measures[0] = tick;
+    measures[1] = ((float)Measures[MEAS_QOUT])/100;
+    measures[2] = ((float)Measures[MEAS_POUT])/100;
+    measures[3] = ((float)Measures[MEAS_S_MOT]);
+    measures[4] = ((float)Measures[MEAS_I_MOT])/100;
+
+
+    //printFloats(measures, 5);
+    printFloatsTelePlot(measures, data_names, 5);
+}
+
+
 void Tick_1ms()
 {
     static int time = 0;
     static int time_ini = 0;
     static int time_duration = 0;
 
+    ReadQoutSensor();
+    UpdateMeasurements();
+
+    if (time%10 == 0)
+    {
+        PrintMeasurements();
+    }
+
     time += 1;
 
+    cmd_peep = 500;
     if ( (time - time_ini) > time_duration )
     {
         if (cmd_motor == CMD_MOTOR_INSPI)
@@ -246,10 +358,11 @@ void Tick_1ms()
     DAC1->DHR12R1 = cmd_motor%4096;
 
     UpdatePWM1(cmd_valve);
-    UpdatePWM2(300);
+    UpdatePWM2(cmd_peep);
     //UpdatePWM3(800);
 
 }
+
 
 /* USER CODE END 0 */
 
@@ -318,23 +431,8 @@ int main(void)
   HAL_UART_Receive_IT(&huart3, UART3_rxBuffer, 1);
   HAL_ADC_Start_DMA(&hadc1, (uint32_t*)adc_buf, ADC_BUF_LEN);
 
-  uint8_t test[3] = {0xBE, 0xEF, 0x00};
-  uint8_t crc = SF04_CalcCrc (test, 2);
-  test[2] = crc;
+  InitQoutSensor();
 
-  uint8_t cmd[3] = {0x36, 0x08, 0x00};
-  crc = SF04_CalcCrc (cmd, 2);
-  cmd[2] = crc;
-
-  uint8_t cmd_status[3] = {0xE1, 0x02, 0x00};
-  crc = SF04_CalcCrc (cmd_status, 2);
-  cmd_status[2] = crc;
-
-  //HAL_GPIO_WritePin(CmdQout_GPIO_Port, CmdQout_Pin, GPIO_PIN_RESET);
-  HAL_GPIO_WritePin(CmdQout_GPIO_Port, CmdQout_Pin, GPIO_PIN_SET);
-
-  uint8_t i2c_state = I2C_INIT;
-  uint8_t i2c_retry = 0;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -343,73 +441,6 @@ int main(void)
   while (1)
   {
 	  HAL_Delay(10);
-
-	  rawQout = -24576;
-
-	  if (i2c_state == I2C_INIT)
-	  {
-	      //HAL_GPIO_WritePin(CmdQout_GPIO_Port, CmdQout_Pin, GPIO_PIN_RESET);
-	      HAL_GPIO_WritePin(CmdQout_GPIO_Port, CmdQout_Pin, GPIO_PIN_SET);
-	      HAL_Delay(300);
-	      //HAL_GPIO_WritePin(CmdQout_GPIO_Port, CmdQout_Pin, GPIO_PIN_SET);
-	      HAL_GPIO_WritePin(CmdQout_GPIO_Port, CmdQout_Pin, GPIO_PIN_RESET);
-	      HAL_Delay(100);
-	      uint8_t status = HAL_I2C_Master_Transmit(&hi2c1, SFM3219_ADDRESS<<1, cmd, 3, 1000);
-          if (status == HAL_OK)
-          {
-              i2c_state = I2C_READ;
-              i2c_retry = 0;
-          }
-          else
-          {
-              HAL_UART_Transmit(&huart3, "INIT_ERROR\n\0", strlen("INIT_ERROR\n\0"), 100);
-          }
-	  }
-	  else if (i2c_state == I2C_READ)
-	  {
-	      uint8_t i2c_rcv_buff[3] = {0x00, 0x00, 0x00};
-	      uint8_t status = HAL_I2C_Master_Receive(&hi2c1, SFM3219_ADDRESS<<1, i2c_rcv_buff, 3, 1000);
-	      if (status == HAL_OK)
-          {
-	          if (SF04_CheckCrc (i2c_rcv_buff, 2, i2c_rcv_buff[2]) != CHECKSUM_ERROR)
-	          {
-	              rawQout = (int16_t)(((uint16_t)i2c_rcv_buff[0])<<8 | i2c_rcv_buff[0]);
-	          }
-	          else
-	          {
-	              HAL_UART_Transmit(&huart3, "CHECKSUM_ERROR\n\0", strlen("CHECKSUM_ERROR\n\0"), 100);
-	              i2c_retry++;
-	          }
-          }
-	      else
-	      {
-	          HAL_UART_Transmit(&huart3, "READING_ERROR\n\0", strlen("READING_ERROR\n\0"), 100);
-	          i2c_retry++;
-	      }
-	      if (i2c_retry >=10)
-	      {
-	          i2c_state = I2C_INIT;
-	      }
-	  }
-
-	  Measures[MEAS_POUT]   = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_A1_PA0_POUT] ), offsetPout );
-	  Measures[MEAS_QOUT]   = RawSFM3019ToLmin(rawQout, offsetQout);
-	  Measures[MEAS_S_MOT]  = RawToCal(adc_buf[ADC_A7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC);
-	  Measures[MEAS_I_MOT]  = RawToCal(adc_buf[ADC_A6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC);
-
-	  float tick = HAL_GetTick();
-	  tick /= 1000;
-
-	  float measures[5];
-	  measures[0] = tick;
-	  measures[1] = ((float)Measures[MEAS_QOUT])/100;
-	  measures[2] = ((float)Measures[MEAS_POUT])/100;
-	  measures[3] = ((float)Measures[MEAS_S_MOT]);
-	  measures[4] = ((float)Measures[MEAS_I_MOT])/100;
-	  //printFloats(measures, 5);
-
-	  printFloatsTelePlot(measures, data_names, 5);
-
 	  //(void) main_cpp();
     /* USER CODE END WHILE */
 

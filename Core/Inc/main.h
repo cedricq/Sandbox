@@ -62,7 +62,7 @@ void Tick_1ms();
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
-#define TIM15_PERIOD_TICKS 4800
+#define TIM15_PERIOD_TICKS 2400
 #define TIM2_PERIOD_TICKS 2400
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
