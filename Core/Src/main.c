@@ -55,7 +55,6 @@ I2C_HandleTypeDef hi2c1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim15;
 
-UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart3_tx;
 
@@ -66,10 +65,10 @@ unsigned char UART3_rxBuffer[UART_BUF_LEN];
 #define ADC_BUF_LEN 4
 uint32_t adc_buf[ADC_BUF_LEN];
 
-#define ADC_A1_PA0_POUT     0
-#define ADC_A2_PA1_XXXX     1
-#define ADC_A6_PC0_I_MOT    2
-#define ADC_A7_PC1_S_MOT    3
+#define ADC_IN1_PA0_POUT     0
+#define ADC_IN11_PB0_PROX    1
+#define ADC_IN6_PC0_I_MOT    2
+#define ADC_IN7_PC1_S_MOT    3
 
 #define SFM3219_ADDRESS     0x2E
 #define SFM3219_START_AIR   0x3608
@@ -80,12 +79,13 @@ typedef enum{
 }i2c_states;
 
 int32_t offsetPout = -366;
+int32_t offsetPprox = -366;
 
 #define MEASURES_BUF_LEN 5
 int32_t Measures[MEASURES_BUF_LEN];
-#define MEAS_POUT     0
-#define MEAS_QOUT     1
-#define MEAS_XXXX     2
+#define MEAS_QOUT     0
+#define MEAS_POUT     1
+#define MEAS_PPROX    2
 #define MEAS_I_MOT    3
 #define MEAS_S_MOT    4
 
@@ -94,6 +94,7 @@ char const* data_names[] =
         "time",
         "qout",
         "pout",
+        "pprox",
         "mot_speed",
         "mot_current"
 };
@@ -110,7 +111,6 @@ uint32_t cmd_valve              = 0;    // 0%
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_USART2_UART_Init(void);
 static void MX_ADC1_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_DMA_Init(void);
@@ -203,8 +203,8 @@ void UpdatePWM3(uint32_t per1000)
 int CMD_MOTOR_INSPI     = 2500;
 int CMD_MOTOR_EXPI      = 500;
 
-int INSPI_TIME          = 1000;
-int EXPI_TIME           = 2000;
+int INSPI_TIME          = 3000; //1000;
+int EXPI_TIME           = 3000; //2000;
 
 
 uint8_t cmd[3] = {0x36, 0x08, 0x00};
@@ -288,10 +288,11 @@ void ReadQoutSensor()
 
 void UpdateMeasurements()
 {
-    Measures[MEAS_POUT]   = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_A1_PA0_POUT] ), offsetPout );
     Measures[MEAS_QOUT]   = RawSFM3019ToLmin(rawQout, offsetQout);
-    Measures[MEAS_S_MOT]  = RawToCal(adc_buf[ADC_A7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC);
-    Measures[MEAS_I_MOT]  = RawToCal(adc_buf[ADC_A6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC);
+    Measures[MEAS_POUT]   = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_IN1_PA0_POUT] ), offsetPout );
+    Measures[MEAS_PPROX]  = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_IN11_PB0_PROX] ), offsetPprox );
+    Measures[MEAS_I_MOT]  = RawToCal(adc_buf[ADC_IN6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC);
+    Measures[MEAS_S_MOT]  = RawToCal(adc_buf[ADC_IN7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC);
 }
 
 void PrintMeasurements()
@@ -299,16 +300,17 @@ void PrintMeasurements()
     float tick = HAL_GetTick();
     tick /= 1000;
 
-    float measures[5];
+    float measures[6];
     measures[0] = tick;
     measures[1] = ((float)Measures[MEAS_QOUT])/100;
     measures[2] = ((float)Measures[MEAS_POUT])/100;
-    measures[3] = ((float)Measures[MEAS_S_MOT]);
-    measures[4] = ((float)Measures[MEAS_I_MOT])/100;
+    measures[3] = ((float)Measures[MEAS_PPROX])/100;
+    measures[4] = ((float)Measures[MEAS_S_MOT]);
+    measures[5] = ((float)Measures[MEAS_I_MOT])/100;
 
 
-    //printFloats(measures, 5);
-    printFloatsTelePlot(measures, data_names, 5);
+    //printFloats(measures, 6);
+    printFloatsTelePlot(measures, data_names, 6);
 }
 
 
@@ -359,7 +361,8 @@ void Tick_1ms()
 
     UpdatePWM1(cmd_valve);
     UpdatePWM2(cmd_peep);
-    //UpdatePWM3(800);
+
+    UpdatePWM3(cmd_valve);
 
 }
 
@@ -407,7 +410,6 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_USART2_UART_Init();
   MX_DMA_Init();
   MX_ADC1_Init();
   MX_USART3_UART_Init();
@@ -474,6 +476,7 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
+
   /** Initializes the CPU, AHB and APB buses clocks
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
@@ -516,6 +519,7 @@ static void MX_ADC1_Init(void)
   /* USER CODE BEGIN ADC1_Init 1 */
 
   /* USER CODE END ADC1_Init 1 */
+
   /** Common config
   */
   hadc1.Instance = ADC1;
@@ -536,6 +540,7 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
   sConfig.Channel = ADC_CHANNEL_1;
@@ -548,14 +553,16 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_2;
+  sConfig.Channel = ADC_CHANNEL_11;
   sConfig.Rank = ADC_REGULAR_RANK_2;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
   sConfig.Channel = ADC_CHANNEL_6;
@@ -564,6 +571,7 @@ static void MX_ADC1_Init(void)
   {
     Error_Handler();
   }
+
   /** Configure Regular Channel
   */
   sConfig.Channel = ADC_CHANNEL_7;
@@ -595,6 +603,7 @@ static void MX_DAC_Init(void)
   /* USER CODE BEGIN DAC_Init 1 */
 
   /* USER CODE END DAC_Init 1 */
+
   /** DAC Initialization
   */
   hdac.Instance = DAC;
@@ -602,6 +611,7 @@ static void MX_DAC_Init(void)
   {
     Error_Handler();
   }
+
   /** DAC channel OUT1 config
   */
   sConfig.DAC_Trigger = DAC_TRIGGER_NONE;
@@ -646,12 +656,14 @@ static void MX_I2C1_Init(void)
   {
     Error_Handler();
   }
+
   /** Configure Analogue filter
   */
   if (HAL_I2CEx_ConfigAnalogFilter(&hi2c1, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
   {
     Error_Handler();
   }
+
   /** Configure Digital filter
   */
   if (HAL_I2CEx_ConfigDigitalFilter(&hi2c1, 0) != HAL_OK)
@@ -787,41 +799,6 @@ static void MX_TIM15_Init(void)
 }
 
 /**
-  * @brief USART2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_USART2_UART_Init(void)
-{
-
-  /* USER CODE BEGIN USART2_Init 0 */
-
-  /* USER CODE END USART2_Init 0 */
-
-  /* USER CODE BEGIN USART2_Init 1 */
-
-  /* USER CODE END USART2_Init 1 */
-  huart2.Instance = USART2;
-  huart2.Init.BaudRate = 38400;
-  huart2.Init.WordLength = UART_WORDLENGTH_8B;
-  huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
-  huart2.Init.Mode = UART_MODE_TX_RX;
-  huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN USART2_Init 2 */
-
-  /* USER CODE END USART2_Init 2 */
-
-}
-
-/**
   * @brief USART3 Initialization Function
   * @param None
   * @retval None
@@ -902,6 +879,14 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : USART_TX_Pin USART_RX_Pin */
+  GPIO_InitStruct.Pin = USART_TX_Pin|USART_RX_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pin : LD2_Pin */
   GPIO_InitStruct.Pin = LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
@@ -953,4 +938,3 @@ void assert_failed(uint8_t *file, uint32_t line)
   /* USER CODE END 6 */
 }
 #endif /* USE_FULL_ASSERT */
-
