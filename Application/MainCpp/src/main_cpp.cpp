@@ -1,12 +1,8 @@
 #include "main_cpp.hpp"
 
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/* Includes ------------------------------------------------------------------*/
-#include "stm32f3xx_hal.h"
+#include "print_output.hpp"
+#include "measurements.hpp"
+#include "commands.hpp"
 
 ADC_HandleTypeDef*  p_hadc1;
 DMA_HandleTypeDef*  p_hdma_adc1;
@@ -17,17 +13,20 @@ TIM_HandleTypeDef*  p_htim15;
 UART_HandleTypeDef* p_huart3;
 DMA_HandleTypeDef*  p_hdma_usart3_tx;
 
-#ifdef __cplusplus
+void init_main_cpp()
+{
+    init_commands();
+    init_print_output(); // !!! Start UART before ADC  !!! ////////
+    init_measurements();
 }
-#endif
 
-
-void main_init_cpp()
+void loop_main_cpp()
 {
 
 }
 
-void main_cpp()
+void tick_main_cpp()
 {
-
+    tick_measurements();
+    tick_commands();
 }

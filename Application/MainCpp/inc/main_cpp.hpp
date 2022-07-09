@@ -17,8 +17,13 @@ extern TIM_HandleTypeDef*  p_htim15;
 extern UART_HandleTypeDef* p_huart3;
 extern DMA_HandleTypeDef*  p_hdma_usart3_tx;
 
-void main_init_cpp();
-void main_cpp();
+void init_main_cpp();
+void loop_main_cpp();
+void tick_main_cpp();
+
+
+void printFloats(float in[], int size);
+void printFloatsTelePlot(float in[], char const* names[], int size);
 
 #ifdef __cplusplus
 }
