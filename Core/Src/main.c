@@ -26,7 +26,6 @@
 #include <stdio.h>
 #include <string.h>
 #include "main_cpp.hpp"
-#include "BufferC.hpp"
 
 /* USER CODE END Includes */
 
@@ -128,7 +127,6 @@ static void MX_TIM2_Init(void);
 void printFloats(float in[], int size)
 {
     char buffer[80]="";
-
     for (int i = 0; i < size; i++)
     {
         char txt[10];
@@ -136,15 +134,13 @@ void printFloats(float in[], int size)
         strcat(buffer, txt);
     }
     strcat(buffer, "\n");
-    //HAL_UART_Transmit(&huart3, buffer, strlen(buffer), 100);
-    HAL_UART_Transmit_DMA(&huart3, buffer, strlen(buffer));
+    HAL_UART_Transmit_DMA(&huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)));
 }
 
 
 void printFloatsTelePlot(float in[], char const* names[], int size)
 {
     char buffer[256]="";
-
     for (int i = 0; i < size; i++)
     {
         char txt[64];
@@ -153,8 +149,7 @@ void printFloatsTelePlot(float in[], char const* names[], int size)
         strcat(buffer, "\r\n");
     }
     strcat(buffer, "\0");
-
-    HAL_UART_Transmit_DMA(&huart3, buffer, strlen(buffer));
+    HAL_UART_Transmit_DMA(&huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)));
 }
 
 const int32_t MAX_CURRENT   = 300;
@@ -224,6 +219,9 @@ void InitQoutSensor()
     i2c_state = I2C_INIT;
 }
 
+#define I2C_INIT_ERROR_MSG "INIT_ERROR\n\0"
+#define I2C_CRC_ERROR_MSG  "CHECKSUM_ERROR\n\0"
+#define I2C_READ_ERROR_MSG "READING_ERROR\n\0"
 
 void ReadQoutSensor()
 {
@@ -250,7 +248,8 @@ void ReadQoutSensor()
             }
             else
             {
-                HAL_UART_Transmit(&huart3, "INIT_ERROR\n\0", strlen("INIT_ERROR\n\0"), 100);
+                char buffer[] = I2C_INIT_ERROR_MSG;
+                HAL_UART_Transmit(&huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)), 100U);
             }
             tick_i2c = 0;
         }
@@ -268,13 +267,15 @@ void ReadQoutSensor()
             }
             else
             {
-                HAL_UART_Transmit(&huart3, "CHECKSUM_ERROR\n\0", strlen("CHECKSUM_ERROR\n\0"), 100);
+                char buffer[] = I2C_CRC_ERROR_MSG;
+                HAL_UART_Transmit(&huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)), 100U);
                 i2c_retry++;
             }
         }
         else
         {
-            HAL_UART_Transmit(&huart3, "READING_ERROR\n\0", strlen("READING_ERROR\n\0"), 100);
+            char buffer[] = I2C_READ_ERROR_MSG;
+            HAL_UART_Transmit(&huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)), 100U);
             i2c_retry++;
         }
         if (i2c_retry >= 10)
@@ -375,6 +376,15 @@ void Tick_1ms()
   */
 int main(void)
 {
+  p_hadc1           = &hadc1;
+  p_hdma_adc1       = &hdma_adc1;
+  p_hdac            = &hdac;
+  p_hi2c1           = &hi2c1;
+  p_htim2           = &htim2;
+  p_htim15          = &htim15;
+  p_huart3          = &huart3;
+  p_hdma_usart3_tx  = &hdma_usart3_tx;
+
   /* USER CODE BEGIN 1 */
 
   /* USER CODE END 1 */
@@ -418,6 +428,8 @@ int main(void)
   MX_TIM15_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+
+  main_init_cpp();
 
   UpdatePWM1(0);
   UpdatePWM2(0);

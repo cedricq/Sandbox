@@ -3,9 +3,25 @@
 
 #ifdef __cplusplus
 extern "C" {
-void main_cpp();
-}
 #endif
 
+/* Includes ------------------------------------------------------------------*/
+#include "stm32f3xx_hal.h"
+
+extern ADC_HandleTypeDef*  p_hadc1;
+extern DMA_HandleTypeDef*  p_hdma_adc1;
+extern DAC_HandleTypeDef*  p_hdac;
+extern I2C_HandleTypeDef*  p_hi2c1;
+extern TIM_HandleTypeDef*  p_htim2;
+extern TIM_HandleTypeDef*  p_htim15;
+extern UART_HandleTypeDef* p_huart3;
+extern DMA_HandleTypeDef*  p_hdma_usart3_tx;
+
+void main_init_cpp();
+void main_cpp();
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
