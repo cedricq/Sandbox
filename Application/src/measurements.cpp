@@ -3,9 +3,11 @@
 #include "main.h"
 
 #include "crc.hpp"
-#include <string.h>
+#include "DataAccessor.hpp"
 
 #include "stm32f3xx_hal.h"
+
+#include <string.h>
 
 #define ADC_IN1_PA0_POUT     0
 #define ADC_IN11_PB0_PROX    1
@@ -157,11 +159,24 @@ void ReadQoutSensor()
 
 void UpdateMeasurements()
 {
+    static DataItem qout(QOUT_ID, true);
+    static DataItem pout(POUT_ID, true);
+    static DataItem pprox(PPROX_ID, true);
+    static DataItem motor_current(MOTOR_CURRENT_ID, true);
+    static DataItem motor_speed(MOTOR_SPEED_ID, true);
+
     Measures[MEAS_QOUT]   = RawSFM3019ToLmin(rawQout, offsetQout);
     Measures[MEAS_POUT]   = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_IN1_PA0_POUT] ), offsetPout );
     Measures[MEAS_PPROX]  = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_IN11_PB0_PROX] ), offsetPprox );
     Measures[MEAS_I_MOT]  = RawToCal(adc_buf[ADC_IN6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC);
     Measures[MEAS_S_MOT]  = RawToCal(adc_buf[ADC_IN7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC);
+
+    qout.set(RawSFM3019ToLmin(rawQout, offsetQout));
+    pout.set(VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_IN1_PA0_POUT] ), offsetPout ));
+    pprox.set(VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_IN11_PB0_PROX] ), offsetPprox ));
+    motor_current.set(RawToCal(adc_buf[ADC_IN6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC));
+    motor_speed.set(RawToCal(adc_buf[ADC_IN7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC));
+
 }
 
 void PrintMeasurements()

@@ -22,8 +22,6 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <stdio.h>
-#include <string.h>
 #include "main_cpp.hpp"
 
 /* USER CODE END Includes */
@@ -154,7 +152,7 @@ int main(void)
   //char buffer [50];
   while (1)
   {
-	  HAL_Delay(10);
+	  //HAL_Delay(10);
 	  loop_main_cpp();
     /* USER CODE END WHILE */
 
