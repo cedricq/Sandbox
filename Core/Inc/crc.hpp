@@ -1,12 +1,9 @@
-/*
- * crc.h
- *
- *  Created on: Oct 29, 2021
- *      Author: cedqu
- */
+#ifndef INC_CRC_HPP_
+#define INC_CRC_HPP_
 
-#ifndef INC_CRC_H_
-#define INC_CRC_H_
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include <stdint.h>
 
@@ -17,4 +14,8 @@ enum{
 uint8_t SF04_CheckCrc (uint8_t data[], uint8_t nbrOfBytes, uint8_t checksum);
 uint8_t SF04_CalcCrc (uint8_t data[], uint8_t nbrOfBytes);
 
-#endif /* INC_CRC_H_ */
+#ifdef __cplusplus
+}
+#endif
+
+#endif /* INC_CRC_HPP_ */
