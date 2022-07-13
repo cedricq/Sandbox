@@ -21,10 +21,6 @@ void init_main_cpp();
 void loop_main_cpp();
 void tick_main_cpp();
 
-
-void printFloats(float in[], int size);
-void printFloatsTelePlot(float in[], char const* names[], int size);
-
 #ifdef __cplusplus
 }
 #endif

@@ -29,4 +29,5 @@ void tick_main_cpp()
 {
     tick_measurements();
     tick_commands();
+    tick_print_output();
 }

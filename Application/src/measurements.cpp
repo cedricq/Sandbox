@@ -13,41 +13,20 @@
 #define ADC_IN11_PB0_PROX    1
 #define ADC_IN6_PC0_I_MOT    2
 #define ADC_IN7_PC1_S_MOT    3
+#define ADC_BUF_LEN         (ADC_IN7_PC1_S_MOT+1)
+uint32_t adc_buf[ADC_BUF_LEN];
+
 
 #define SFM3219_ADDRESS     0x2E
 #define SFM3219_START_AIR   0x3608
-
 typedef enum{
     I2C_INIT = 0,
     I2C_READ = 1
 }i2c_states;
+const int32_t offsetQout = -57;
 
 const int32_t offsetPout = -366;
 const int32_t offsetPprox = -366;
-const int32_t offsetQout = -57;
-
-#define ADC_BUF_LEN 4
-uint32_t adc_buf[ADC_BUF_LEN];
-
-#define MEASURES_BUF_LEN 5
-int32_t Measures[MEASURES_BUF_LEN];
-#define MEAS_QOUT     0
-#define MEAS_POUT     1
-#define MEAS_PPROX    2
-#define MEAS_I_MOT    3
-#define MEAS_S_MOT    4
-
-char const* data_names[] =
-{
-        "time",
-        "qout",
-        "pout",
-        "pprox",
-        "mot_speed",
-        "mot_current"
-};
-
-
 
 const int32_t MAX_CURRENT   = 300;
 const int32_t MAX_SPEED     = 60000;
@@ -165,44 +144,17 @@ void UpdateMeasurements()
     static DataItem motor_current(MOTOR_CURRENT_ID, true);
     static DataItem motor_speed(MOTOR_SPEED_ID, true);
 
-    Measures[MEAS_QOUT]   = RawSFM3019ToLmin(rawQout, offsetQout);
-    Measures[MEAS_POUT]   = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_IN1_PA0_POUT] ), offsetPout );
-    Measures[MEAS_PPROX]  = VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_IN11_PB0_PROX] ), offsetPprox );
-    Measures[MEAS_I_MOT]  = RawToCal(adc_buf[ADC_IN6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC);
-    Measures[MEAS_S_MOT]  = RawToCal(adc_buf[ADC_IN7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC);
-
     qout.set(RawSFM3019ToLmin(rawQout, offsetQout));
     pout.set(VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_IN1_PA0_POUT] ), offsetPout ));
     pprox.set(VoltageTo01mbar( RawADCToVolt( adc_buf[ADC_IN11_PB0_PROX] ), offsetPprox ));
     motor_current.set(RawToCal(adc_buf[ADC_IN6_PC0_I_MOT], MAX_CURRENT, MAX_RAW_ADC));
     motor_speed.set(RawToCal(adc_buf[ADC_IN7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC));
-
 }
-
-void PrintMeasurements()
-{
-    float tick = HAL_GetTick();
-    tick /= 1000;
-
-    float measures[6];
-    measures[0] = tick;
-    measures[1] = ((float)Measures[MEAS_QOUT])/100;
-    measures[2] = ((float)Measures[MEAS_POUT])/100;
-    measures[3] = ((float)Measures[MEAS_PPROX])/100;
-    measures[4] = ((float)Measures[MEAS_S_MOT]);
-    measures[5] = ((float)Measures[MEAS_I_MOT])/100;
-
-
-    //printFloats(measures, 6);
-    printFloatsTelePlot(measures, data_names, 6);
-}
-
 
 void initADC()
 {
     HAL_ADC_Start_DMA(p_hadc1, (uint32_t*)adc_buf, ADC_BUF_LEN);
 }
-
 
 void init_measurements()
 {
@@ -212,16 +164,10 @@ void init_measurements()
 
 void tick_measurements()
 {
-    static int time = 0;
+    static DataItem time(TIME_ID, true);
+    time.set(time.get().value + 1 );
 
     ReadQoutSensor();
     UpdateMeasurements();
-
-    if (time%10 == 0)
-    {
-        PrintMeasurements();
-    }
-
-    time += 1;
 }
 

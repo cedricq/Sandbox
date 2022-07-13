@@ -26,6 +26,7 @@ struct Datagram
     int32_t reset;
     int32_t min;
     int32_t max;
+    int32_t div;
     const char* name;
 };
 
@@ -36,7 +37,8 @@ public:
     DataItem(DataItemId id, bool writable);
     ~DataItem();
 
-    int32_t get();
+    Datagram& get();
+    int32_t div();
     void set(int32_t val);
     void reset();
 
