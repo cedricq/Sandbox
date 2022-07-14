@@ -1,11 +1,19 @@
 #include "print_output.hpp"
-#include "main_cpp.hpp"
+#include "Fibre.hpp"
+#include "DataAccessor.hpp"
+#include "main.h"
 
 #include <stdio.h>
 #include <string.h>
 
+#define UART_BUF_LEN 255
 unsigned char UART3_rxBuffer[UART_BUF_LEN];
 
+
+void printMessage(const char* message)
+{
+    HAL_UART_Transmit(p_huart3, (uint8_t*)message, (uint8_t)(strlen(message)), 100U);
+}
 
 void printDatas(DataItemId dataIds[], uint32_t size)
 {
@@ -22,7 +30,6 @@ void printDatas(DataItemId dataIds[], uint32_t size)
     strcat(buffer, "\r\n\0");
     HAL_UART_Transmit_DMA(p_huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)));
 }
-
 
 void printTelePlot(DataItemId dataIds[], uint32_t size)
 {
@@ -41,27 +48,33 @@ void printTelePlot(DataItemId dataIds[], uint32_t size)
     HAL_UART_Transmit_DMA(p_huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)));
 }
 
-void printMessage(const char* message)
-{
-    HAL_UART_Transmit(p_huart3, (uint8_t*)message, (uint8_t)(strlen(message)), 100U);
-}
 
-void init_print_output()
+class PrintFibre : public Fibre
 {
-    HAL_UART_Receive_IT(p_huart3, UART3_rxBuffer, 1);
-}
-
-void tick_print_output()
-{
-    static DataItem time(TIME_ID);
-    static DataItemId datas[] = {TIME_ID, QOUT_ID, POUT_ID, PPROX_ID, MOTOR_SPEED_ID, MOTOR_CURRENT_ID};
-
-    if (time.get().value%10 == 0)
+public:
+    PrintFibre(): Fibre("PrintFibre")
     {
-        //printTelePlot(datas,  sizeof(datas)/sizeof(datas[0]));
-        printDatas(datas,  sizeof(datas)/sizeof(datas[0]));
+        FibreManager& mgr = FibreManager::getInstance(THREAD_1MS_ID);
+        mgr.Add(this);
     }
-}
 
+    virtual void Init()
+    {
+        HAL_UART_Receive_IT(p_huart3, UART3_rxBuffer, 1);
+    }
 
+    virtual void Run()
+    {
+        static DataItem time(TIME_ID);
+        static DataItemId datas[] = {TIME_ID, QOUT_ID, POUT_ID, PPROX_ID, MOTOR_SPEED_ID, MOTOR_CURRENT_ID};
+
+        if (time.get().value%10 == 0)
+        {
+            //printTelePlot(datas,  sizeof(datas)/sizeof(datas[0]));
+            printDatas(datas,  sizeof(datas)/sizeof(datas[0]));
+        }
+    }
+};
+
+static PrintFibre printFibre;
 

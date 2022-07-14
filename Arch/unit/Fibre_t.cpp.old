@@ -1,0 +1,43 @@
+#include "../inc/Fibre.hpp"
+
+#include <stdio.h>
+
+class FibrePrint : public Fibre
+{
+public :
+
+    FibrePrint(const char* name): Fibre(name)
+    {}
+    virtual void Init()
+    {
+        std::cout<<"INIT : " <<getName() <<std::endl;
+    }
+    virtual void Run()
+    {
+        std::cout<<"RUN : " <<getName() <<std::endl;
+    }
+};
+
+
+
+int main()
+{
+    FibreManager thread_polled(MAIN_ID);
+    FibreManager thread_1ms(THREAD_1MS_ID);
+
+    FibrePrint fibreA("A");
+    FibrePrint fibreB("B");
+    FibrePrint fibreC("C");
+
+    thread_polled.Add(fibreA);
+    thread_polled.Add(fibreB);
+    thread_polled.Init();
+    thread_polled.Run();
+
+    std::cout<<"--------------------------"<<std::endl;
+
+    thread_1ms.Add(fibreC);
+    thread_1ms.Add(fibreB);
+    thread_1ms.Init();
+    thread_1ms.Run();
+}

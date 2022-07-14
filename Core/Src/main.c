@@ -18,11 +18,11 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
+#include <threads.hpp>
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "main_cpp.hpp"
 
 /* USER CODE END Includes */
 
@@ -56,6 +56,15 @@ DMA_HandleTypeDef hdma_usart3_tx;
 
 /* USER CODE BEGIN PV */
 
+ADC_HandleTypeDef*  p_hadc1;
+DMA_HandleTypeDef*  p_hdma_adc1;
+DAC_HandleTypeDef*  p_hdac;
+I2C_HandleTypeDef*  p_hi2c1;
+TIM_HandleTypeDef*  p_htim2;
+TIM_HandleTypeDef*  p_htim15;
+UART_HandleTypeDef* p_huart3;
+DMA_HandleTypeDef*  p_hdma_usart3_tx;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -74,13 +83,6 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-
-void Tick_1ms()
-{
-    tick_main_cpp();
-}
-
 
 /* USER CODE END 0 */
 
@@ -143,7 +145,7 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-  init_main_cpp();
+  init_threads();
 
   /* USER CODE END 2 */
 
@@ -152,8 +154,6 @@ int main(void)
   //char buffer [50];
   while (1)
   {
-	  //HAL_Delay(10);
-	  loop_main_cpp();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

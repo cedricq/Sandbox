@@ -1,5 +1,4 @@
-#include "measurements.hpp"
-#include "main_cpp.hpp"
+#include "Fibre.hpp"
 #include "main.h"
 
 #include "crc.hpp"
@@ -20,10 +19,7 @@ uint32_t adc_buf[ADC_BUF_LEN];
 
 #define SFM3219_ADDRESS     0x2E
 #define SFM3219_START_AIR   0x3608
-typedef enum{
-    I2C_INIT = 0,
-    I2C_READ = 1
-}i2c_states;
+
 const int32_t offsetQout = -57;
 
 const int32_t offsetPout = -366;
@@ -53,14 +49,22 @@ int32_t RawToCal(int32_t raw, int32_t max_cal, int32_t max_raw)
     return (raw * max_cal) / max_raw;
 }
 
+void InitADC()
+{
+    HAL_ADC_Start_DMA(p_hadc1, (uint32_t*)adc_buf, ADC_BUF_LEN);
+}
+
+enum i2c_states{
+    I2C_INIT = 0,
+    I2C_READ = 1
+};
+i2c_states i2c_state = I2C_INIT;
 
 uint8_t crc = 0;
-uint8_t i2c_state = 0;
 uint8_t i2c_retry = 0;
-
 int32_t rawQout = 0;
-
 uint8_t cmd[3] = {0x36, 0x08, 0x00};
+
 void InitQoutSensor()
 {
     crc = SF04_CalcCrc (cmd, 2);
@@ -134,6 +138,7 @@ void ReadQoutSensor()
     }
 }
 
+
 void UpdateMeasurements()
 {
     static DataItem qout(QOUT_ID, true);
@@ -149,23 +154,32 @@ void UpdateMeasurements()
     motor_speed.set(RawToCal(adc_buf[ADC_IN7_PC1_S_MOT], MAX_SPEED, MAX_RAW_ADC));
 }
 
-void initADC()
-{
-    HAL_ADC_Start_DMA(p_hadc1, (uint32_t*)adc_buf, ADC_BUF_LEN);
-}
 
-void init_measurements()
+class MeasurementFibre : public Fibre
 {
-    initADC();
-    InitQoutSensor();
-}
+public:
+    MeasurementFibre(): Fibre("MeasurementFibre")
+    {
+        FibreManager& thread = FibreManager::getInstance(THREAD_1MS_ID);
+        thread.Add(this);
+    }
 
-void tick_measurements()
-{
-    static DataItem time(TIME_ID, true);
-    time.set(time.get().value + 1 );
+    virtual void Init()
+    {
+        InitADC();
+        InitQoutSensor();
+    }
+    virtual void Run()
+    {
+        static DataItem time(TIME_ID, true);
+        time.set(time.get().value + 1 );
 
-    ReadQoutSensor();
-    UpdateMeasurements();
-}
+        ReadQoutSensor();
+        UpdateMeasurements();
+    }
+};
+
+static MeasurementFibre measurementFibre;
+
+
 
