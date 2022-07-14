@@ -1,36 +1,35 @@
 #include "Fibre.hpp"
+#include "DataAccessor.hpp"
+
 #include "main.h"
 
 #include "stm32f3xx_hal.h"
 
-
-uint32_t target_motor_speed     = 20000;    // 20000 rpm
-uint32_t target_motor_qout      = 1000;     // 10 L/min
-
-uint32_t cmd_motor              = 0; //100;  // 10%
-uint32_t cmd_peep               = 0; //200;  // 20%
-uint32_t cmd_valve              = 0;    // 0%
-
-void UpdatePWM1(uint32_t per1000)
+struct PWM
 {
-    TIM15->CCR1 = (per1000 * TIM15_PERIOD_TICKS) /1000;
+    volatile uint32_t& pwm;
+    uint32_t period;
+};
+
+const PWM pwm1 = {.pwm = TIM15->CCR1, .period = TIM15_PERIOD_TICKS};
+const PWM pwm2 = {.pwm = TIM15->CCR2, .period = TIM15_PERIOD_TICKS};
+const PWM pwm3 = {.pwm = TIM2->CCR1,  .period = TIM2_PERIOD_TICKS};
+
+int32_t TargetToDAC(int32_t target, int32_t div)
+{
+    static const int32_t MAX_RAW_DAC = 4095;
+    return target * MAX_RAW_DAC / div;
 }
 
-void UpdatePWM2(uint32_t per1000)
+void UpdatePWM(const PWM& pwm, int32_t target, int32_t div)
 {
-    TIM15->CCR2 = (per1000 * TIM15_PERIOD_TICKS) /1000;
-}
-
-void UpdatePWM3(uint32_t per1000)
-{
-    TIM2->CCR1 = (per1000 * TIM2_PERIOD_TICKS) /1000;
+    pwm.pwm = (target * pwm.period) / div;
 }
 
 const int CMD_MOTOR_INSPI     = 2500;
 const int CMD_MOTOR_EXPI      = 500;
 const int INSPI_TIME          = 3000; //1000;
 const int EXPI_TIME           = 3000; //2000;
-
 
 class CommandFibre : public Fibre
 {
@@ -43,52 +42,28 @@ public:
 
     virtual void Init()
     {
-        UpdatePWM1(0);
-        UpdatePWM2(0);
+        UpdatePWM(pwm1, 0, 1);
+        UpdatePWM(pwm2, 0, 1);
         TIM15->CCER |= TIM_CCER_CC1E;
         TIM15->CCER |= TIM_CCER_CC2E;
         HAL_TIMEx_PWMN_Start(p_htim15, HAL_TIM_ACTIVE_CHANNEL_1);
 
-        UpdatePWM3(0);
+        UpdatePWM(pwm3, 0, 1);
         TIM2->CCER |= TIM_CCER_CC1E;
         HAL_TIMEx_PWMN_Start(p_htim2, HAL_TIM_ACTIVE_CHANNEL_1);
     }
 
     virtual void Run()
     {
-        static int time = 0;
-        static int time_ini = 0;
-        static int time_duration = 0;
+        static DataItem main_motor_target(MAIN_MOTOR_TARGET_ID);
+        static DataItem peep_motor_target(PEEP_MOTOR_TARGET_ID);
+        static DataItem valve_ie_target(VALVE_IE_TARGET_ID);
+        static DataItem test_target(TEST_TARGET_ID);
 
-        time += 1;
-
-        cmd_peep = 500;
-        if ( (time - time_ini) > time_duration )
-        {
-            if (cmd_motor == CMD_MOTOR_INSPI)
-            {
-                cmd_motor = 4*CMD_MOTOR_EXPI;
-                cmd_valve = 0;
-                time_duration = EXPI_TIME;
-            }
-            else
-            {
-                cmd_motor = CMD_MOTOR_INSPI;
-                cmd_valve = 999;
-                time_duration = INSPI_TIME;
-            }
-            time_ini = time;
-        }
-
-        // Main motor command
-        DAC1->DHR12R1 = cmd_motor%4096;
-        // IE valve command
-        UpdatePWM1(cmd_valve);
-        // Peep motor command
-        UpdatePWM2(cmd_peep);
-        // Test command
-        UpdatePWM3(cmd_valve);
-
+        DAC1->DHR12R1 = TargetToDAC(main_motor_target.get().value, main_motor_target.get().div);
+        UpdatePWM(pwm1, valve_ie_target.get().value, valve_ie_target.get().div);
+        UpdatePWM(pwm2, peep_motor_target.get().value, peep_motor_target.get().div);
+        UpdatePWM(pwm3, test_target.get().value, test_target.get().div);
     }
 };
 

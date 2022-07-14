@@ -12,10 +12,10 @@ Datagram DataItems[] =
 [MOTOR_CURRENT_ID] =    {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 100,     .name = "motor_current"},
 
 // // Targets
-[MOTOR_TARGET_ID] =     {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "motor_target"},
-[ACT_1_TARGET_ID] =     {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "act1_target"},
-[ACT_2_TARGET_ID] =     {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "act2_target"},
-[ACT_3_TARGET_ID] =     {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "act3_target"}
+[MAIN_MOTOR_TARGET_ID] =    {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "motor_target"},
+[PEEP_MOTOR_TARGET_ID] =    {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "act1_target"},
+[VALVE_IE_TARGET_ID] =      {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "act2_target"},
+[TEST_TARGET_ID] =          {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "act3_target"}
 
 };
 
