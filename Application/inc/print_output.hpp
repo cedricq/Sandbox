@@ -14,6 +14,7 @@ extern unsigned char UART3_rxBuffer[UART_BUF_LEN];
 void init_print_output();
 void tick_print_output();
 
+void printMessage(const char* message);
 void printDatas(DataItemId dataIds[], uint32_t size);
 void printTelePlot(DataItemId dataIds[], uint32_t size);
 

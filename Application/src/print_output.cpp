@@ -41,6 +41,10 @@ void printTelePlot(DataItemId dataIds[], uint32_t size)
     HAL_UART_Transmit_DMA(p_huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)));
 }
 
+void printMessage(const char* message)
+{
+    HAL_UART_Transmit(p_huart3, (uint8_t*)message, (uint8_t)(strlen(message)), 100U);
+}
 
 void init_print_output()
 {

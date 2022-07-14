@@ -4,6 +4,7 @@
 
 #include "crc.hpp"
 #include "DataAccessor.hpp"
+#include "print_output.hpp"
 
 #include "stm32f3xx_hal.h"
 
@@ -69,9 +70,9 @@ void InitQoutSensor()
     i2c_state = I2C_INIT;
 }
 
-#define I2C_INIT_ERROR_MSG "INIT_ERROR\n\0"
-#define I2C_CRC_ERROR_MSG  "CHECKSUM_ERROR\n\0"
-#define I2C_READ_ERROR_MSG "READING_ERROR\n\0"
+const char* I2C_INIT_ERROR_MSG  = "INIT_ERROR\n\0";
+const char* I2C_CRC_ERROR_MSG   = "CHECKSUM_ERROR\n\0";
+const char* I2C_READ_ERROR_MSG  = "READING_ERROR\n\0";
 
 void ReadQoutSensor()
 {
@@ -98,8 +99,7 @@ void ReadQoutSensor()
             }
             else
             {
-                char buffer[] = I2C_INIT_ERROR_MSG;
-                HAL_UART_Transmit(p_huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)), 100U);
+                printMessage(I2C_INIT_ERROR_MSG);
             }
             tick_i2c = 0;
         }
@@ -117,15 +117,13 @@ void ReadQoutSensor()
             }
             else
             {
-                char buffer[] = I2C_CRC_ERROR_MSG;
-                HAL_UART_Transmit(p_huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)), 100U);
+                printMessage(I2C_CRC_ERROR_MSG);
                 i2c_retry++;
             }
         }
         else
         {
-            char buffer[] = I2C_READ_ERROR_MSG;
-            HAL_UART_Transmit(p_huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)), 100U);
+            printMessage(I2C_READ_ERROR_MSG);
             i2c_retry++;
         }
         if (i2c_retry >= 10)
