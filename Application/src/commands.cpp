@@ -13,7 +13,8 @@ struct PWM
 
 const PWM pwm1 = {.pwm = TIM15->CCR1, .period = TIM15_PERIOD_TICKS};
 const PWM pwm2 = {.pwm = TIM15->CCR2, .period = TIM15_PERIOD_TICKS};
-const PWM pwm3 = {.pwm = TIM2->CCR1,  .period = TIM2_PERIOD_TICKS};
+const PWM pwm3 = {.pwm = TIM2->CCR1,  .period = TIM2_PERIOD_TICKS};     // PA5
+const PWM pwm4 = {.pwm = TIM2->CCR3,  .period = TIM2_PERIOD_TICKS};     // PB10
 
 int32_t TargetToDAC(int32_t target, int32_t div)
 {
@@ -49,7 +50,9 @@ public:
         HAL_TIMEx_PWMN_Start(p_htim15, HAL_TIM_ACTIVE_CHANNEL_1);
 
         UpdatePWM(pwm3, 0, 1);
+        UpdatePWM(pwm4, 0, 1);
         TIM2->CCER |= TIM_CCER_CC1E;
+        TIM2->CCER |= TIM_CCER_CC3E;
         HAL_TIMEx_PWMN_Start(p_htim2, HAL_TIM_ACTIVE_CHANNEL_1);
     }
 
@@ -64,6 +67,7 @@ public:
         UpdatePWM(pwm1, valve_ie_target.get().value, valve_ie_target.get().div);
         UpdatePWM(pwm2, peep_motor_target.get().value, peep_motor_target.get().div);
         UpdatePWM(pwm3, test_target.get().value, test_target.get().div);
+        UpdatePWM(pwm4, test_target.get().value, test_target.get().div);
     }
 };
 

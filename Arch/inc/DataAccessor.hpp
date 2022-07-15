@@ -13,7 +13,7 @@ enum DataItemId
     MOTOR_SPEED_ID      = 4,
     MOTOR_CURRENT_ID    = 5,
 
-    // // Targets
+    // Targets
     MAIN_MOTOR_TARGET_ID    = 6,
     PEEP_MOTOR_TARGET_ID    = 7,
     VALVE_IE_TARGET_ID      = 8,
