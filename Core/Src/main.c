@@ -151,9 +151,9 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  //char buffer [50];
   while (1)
   {
+    tick_polled();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */

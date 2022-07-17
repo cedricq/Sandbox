@@ -24,7 +24,7 @@ void printDatas(DataItemId dataIds[], uint32_t size)
         DataItem item(dataIds[i]);
         Datagram& data = item.get();
 
-        sprintf(txt, "%d.%d ", static_cast<int>(data.value / data.div), static_cast<int>(data.value % data.div));
+        sprintf(txt, "%d ", static_cast<int>(data.value));
         strcat(buffer, txt);
     }
     strcat(buffer, "\r\n\0");
@@ -33,14 +33,21 @@ void printDatas(DataItemId dataIds[], uint32_t size)
 
 void printTelePlot(DataItemId dataIds[], uint32_t size)
 {
-    char buffer[512]="";
+    char buffer[1024]="";
     for (uint32_t i = 0; i < size; i++)
     {
         char txt[64];
         DataItem item(dataIds[i]);
         Datagram& data = item.get();
 
-        sprintf(txt, ">%s:%d.%d ", data.name, static_cast<int>(data.value / data.div), static_cast<int>(data.value % data.div));
+        if ( data.div > 1)
+        {
+            sprintf(txt, ">%s:%d.%d", data.name, static_cast<int>(data.value / data.div), static_cast<int>(data.value % data.div));
+        }
+        else
+        {
+            sprintf(txt, ">%s:%d", data.name, static_cast<int>(data.value));
+        }
         strcat(buffer, txt);
         strcat(buffer, "\n");
     }
@@ -54,7 +61,7 @@ class PrintFibre : public Fibre
 public:
     PrintFibre(): Fibre("PrintFibre")
     {
-        FibreManager& mgr = FibreManager::getInstance(THREAD_1MS_ID);
+        FibreManager& mgr = FibreManager::getInstance(THREAD_POLLED_ID);
         mgr.Add(this);
     }
 
@@ -66,7 +73,7 @@ public:
     virtual void Run()
     {
         static DataItem time(TIME_ID);
-        static DataItemId datas[] = {TIME_ID, QOUT_ID, POUT_ID, PPROX_ID, MOTOR_SPEED_ID, MOTOR_CURRENT_ID};
+        static DataItemId datas[] = {TIME_ID, QOUT_ID, POUT_ID, PPROX_ID, MOTOR_SPEED_ID, MOTOR_CURRENT_ID, MAIN_MOTOR_TARGET_ID, PEEP_MOTOR_TARGET_ID, VALVE_IE_TARGET_ID, TEST_TARGET_ID, BREATH_STATE_ID};
 
         if (time.get().value%10 == 0)
         {

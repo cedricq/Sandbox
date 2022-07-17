@@ -8,6 +8,7 @@ extern "C" {
 void init_threads();
 void tick_polled();
 void tick_1ms();
+void tick_10ms();
 
 #ifdef __cplusplus
 }

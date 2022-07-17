@@ -18,6 +18,11 @@ enum DataItemId
     PEEP_MOTOR_TARGET_ID    = 7,
     VALVE_IE_TARGET_ID      = 8,
     TEST_TARGET_ID          = 9,
+
+    // State
+    BREATH_STATE_ID         = 10,
+    INSPI_TIME_ID           = 11,
+    EXPI_TIME_ID            = 12,
 };
 
 struct Datagram
