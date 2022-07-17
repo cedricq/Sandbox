@@ -5,51 +5,47 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <vector>
 
 #define UART_BUF_LEN 255
 unsigned char UART3_rxBuffer[UART_BUF_LEN];
 
+DataItemId dataIds[] = {TIME_ID, QOUT_ID, POUT_ID, PPROX_ID, MOTOR_SPEED_ID, MOTOR_CURRENT_ID, MAIN_MOTOR_TARGET_ID, PEEP_MOTOR_TARGET_ID, VALVE_IE_TARGET_ID, TEST_TARGET_ID, BREATH_STATE_ID};
 
 void printMessage(const char* message)
 {
     HAL_UART_Transmit(p_huart3, (uint8_t*)message, (uint8_t)(strlen(message)), 100U);
 }
 
-void printDatas(DataItemId dataIds[], uint32_t size)
+void printDatas(const std::vector<Datagram*> datagrams)
 {
     char buffer[512]="";
-    for (uint32_t i = 0; i < size; i++)
+    for(const auto& data: datagrams)
     {
         char txt[64];
-        DataItem item(dataIds[i]);
-        Datagram& data = item.get();
-
-        sprintf(txt, "%d ", static_cast<int>(data.value));
+        sprintf(txt, "%d ", static_cast<int>(data->value));
         strcat(buffer, txt);
     }
-    strcat(buffer, "\r\n\0");
+    strcat(buffer, "\n\0");
     HAL_UART_Transmit_DMA(p_huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)));
 }
 
-void printTelePlot(DataItemId dataIds[], uint32_t size)
+void printTelePlot(const std::vector<Datagram*> datagrams)
 {
-    char buffer[1024]="";
-    for (uint32_t i = 0; i < size; i++)
+    char buffer[512]="";
+    for(const auto& data: datagrams)
     {
         char txt[64];
-        DataItem item(dataIds[i]);
-        Datagram& data = item.get();
-
-        if ( data.div > 1)
+        if ( data->div > 1)
         {
-            sprintf(txt, ">%s:%d.%d", data.name, static_cast<int>(data.value / data.div), static_cast<int>(data.value % data.div));
+            sprintf(txt, ">%s:%d.%d", data->name, static_cast<int>(data->value / data->div), static_cast<int>(data->value % data->div));
         }
         else
         {
-            sprintf(txt, ">%s:%d", data.name, static_cast<int>(data.value));
+            sprintf(txt, ">%s:%d", data->name, static_cast<int>(data->value));
         }
         strcat(buffer, txt);
-        strcat(buffer, "\n");
+        strcat(buffer, "\r\n");
     }
     strcat(buffer, "\0");
     HAL_UART_Transmit_DMA(p_huart3, (uint8_t*)buffer, (uint8_t)(strlen(buffer)));
@@ -67,20 +63,25 @@ public:
 
     virtual void Init()
     {
+        for (uint32_t i = 0; i < sizeof(dataIds)/sizeof(dataIds[0]); i++)
+        {
+            datagrams_.push_back(&(DataItem(dataIds[i]).get()));
+        }
+
         HAL_UART_Receive_IT(p_huart3, UART3_rxBuffer, 1);
     }
 
     virtual void Run()
     {
         static DataItem time(TIME_ID);
-        static DataItemId datas[] = {TIME_ID, QOUT_ID, POUT_ID, PPROX_ID, MOTOR_SPEED_ID, MOTOR_CURRENT_ID, MAIN_MOTOR_TARGET_ID, PEEP_MOTOR_TARGET_ID, VALVE_IE_TARGET_ID, TEST_TARGET_ID, BREATH_STATE_ID};
-
         if (time.get().value%10 == 0)
         {
-            //printTelePlot(datas,  sizeof(datas)/sizeof(datas[0]));
-            printDatas(datas,  sizeof(datas)/sizeof(datas[0]));
+            printTelePlot(datagrams_);
+            //printDatas(datagrams_);
         }
     }
+
+    std::vector<Datagram*> datagrams_ {};
 };
 
 static PrintFibre printFibre;

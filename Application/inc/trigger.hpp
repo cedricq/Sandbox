@@ -20,8 +20,8 @@ public:
     TimeTrigger(Datagram& time, int32_t threshold);
     void Set(int32_t threshold);
 
-    virtual bool IsTrigger();
-    virtual void Reset();
+    bool IsTrigger() override;
+    void Reset() override;
 
 private:
     Datagram& time_;
