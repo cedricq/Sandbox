@@ -1,6 +1,9 @@
 #include "trigger.hpp"
 #include "breath_machine.hpp"
 
+const int INSPI_TIME             = 2000;
+const int EXPI_TIME              = 3000;
+
 const Datagram& TriggerI::time_ {DataItem(TIME_ID).get()};
 
 class NoneTrigger : public TriggerI
@@ -52,15 +55,18 @@ bool TriggerManager::IsTrigger()
     }
 }
 
-TriggerManager::TriggerManager():
-        triggerInspi_(noneTrigger_s),
-        triggerExpi_(noneTrigger_s),
+TriggerManager::TriggerManager(TriggerI& trg_Inspi, TriggerI& trg_Expi):
+        triggerInspi_(trg_Inspi),
+        triggerExpi_(trg_Expi),
         state_(DataItem(BREATH_STATE_ID).get())
 {}
 
 TriggerManager& TriggerManager::GetInstance()
 {
-    static TriggerManager trg;
+    static TimeTrigger timeTriggerInspi(DataItem(EXPI_TIME_ID).get(), EXPI_TIME);
+    static TimeTrigger timeTriggerExpi(DataItem(INSPI_TIME_ID).get(), INSPI_TIME);
+
+    static TriggerManager trg(timeTriggerInspi, timeTriggerExpi);
     return trg;
 }
 

@@ -15,16 +15,8 @@ void init_threads()
 void tick_polled()
 {
     static FibreManager& thread_polled = FibreManager::getInstance(THREAD_POLLED_ID);
-
-    //static Datagram& time = DataItem(TIME_ID).get();
-    //static uint32_t time_ini = time.value;
-
-    //if ( time.value - time_ini > 10 )
-    {
-        thread_polled.Run();
-        //time_ini = time.value;
-
-    }
+    thread_polled.Run();
+    HAL_Delay(10);
 }
 
 void tick_1ms()

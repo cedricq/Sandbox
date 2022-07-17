@@ -38,7 +38,7 @@ public:
     bool IsTrigger();
 
 private:
-    TriggerManager();
+    TriggerManager(TriggerI& trg_Inspi, TriggerI& trg_Expi);
 
     TriggerI& triggerInspi_ ;
     TriggerI& triggerExpi_ ;

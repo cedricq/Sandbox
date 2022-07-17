@@ -4,9 +4,6 @@
 #include "Fibre.hpp"
 #include "DataAccessor.hpp"
 
-const int INSPI_TIME             = 2000;
-const int EXPI_TIME              = 3000;
-
 const int TARGET_MOTOR_INSPI     = 750;
 const int TARGET_MOTOR_EXPI      = 600;
 const int TARGET_MOTOR_PEEP      = 150;
@@ -26,11 +23,6 @@ public:
 
     virtual void Init()
     {
-        static TimeTrigger timeTriggerInspi(DataItem(EXPI_TIME_ID).get(), EXPI_TIME);
-        static TimeTrigger timeTriggerExpi(DataItem(INSPI_TIME_ID).get(), INSPI_TIME);
-        trigger_.SetExpi(timeTriggerExpi);
-        trigger_.SetInspi(timeTriggerInspi);
-
         time_ini_ = time_.value;
         peep_motor_target_.set(TARGET_MOTOR_PEEP);
         breath_state_.set(state_);

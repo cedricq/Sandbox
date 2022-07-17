@@ -13,9 +13,9 @@ Datagram DataItems[] =
 
 // Targets
 [MAIN_MOTOR_TARGET_ID] =    {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "motor_target"},
-[PEEP_MOTOR_TARGET_ID] =    {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "act1_target"},
-[VALVE_IE_TARGET_ID] =      {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "act2_target"},
-[TEST_TARGET_ID] =          {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "act3_target"},
+[PEEP_MOTOR_TARGET_ID] =    {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "peep_target"},
+[VALVE_IE_TARGET_ID] =      {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "ie_target"},
+[TEST_TARGET_ID] =          {.value = 0,     .reset = 0,  .min = 0,          .max = 1000,       .div = 10,      .name = "test_target"},
 
 // State
 [BREATH_STATE_ID] =     {.value = 0,    .reset = 0,  .min = 0,          .max = 1,          .div = 1,       .name = "breath_state"},
