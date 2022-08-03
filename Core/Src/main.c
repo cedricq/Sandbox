@@ -19,10 +19,10 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "threads.hpp"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "main_cpp.hpp"
 
 /* USER CODE END Includes */
 
@@ -56,6 +56,15 @@ DMA_HandleTypeDef hdma_usart3_tx;
 
 /* USER CODE BEGIN PV */
 
+ADC_HandleTypeDef*  p_hadc1;
+DMA_HandleTypeDef*  p_hdma_adc1;
+DAC_HandleTypeDef*  p_hdac;
+I2C_HandleTypeDef*  p_hi2c1;
+TIM_HandleTypeDef*  p_htim2;
+TIM_HandleTypeDef*  p_htim15;
+UART_HandleTypeDef* p_huart3;
+DMA_HandleTypeDef*  p_hdma_usart3_tx;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -74,13 +83,6 @@ static void MX_TIM2_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-
-void Tick_1ms()
-{
-    tick_main_cpp();
-}
-
 
 /* USER CODE END 0 */
 
@@ -143,17 +145,15 @@ int main(void)
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
 
-  init_main_cpp();
+  init_threads();
 
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-  //char buffer [50];
   while (1)
   {
-	  //HAL_Delay(10);
-	  loop_main_cpp();
+    tick_polled();
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -429,6 +429,11 @@ static void MX_TIM2_Init(void)
     Error_Handler();
   }
   __HAL_TIM_DISABLE_OCxPRELOAD(&htim2, TIM_CHANNEL_1);
+  if (HAL_TIM_PWM_ConfigChannel(&htim2, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  __HAL_TIM_DISABLE_OCxPRELOAD(&htim2, TIM_CHANNEL_3);
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */

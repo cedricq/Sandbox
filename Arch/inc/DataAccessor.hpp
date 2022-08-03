@@ -13,11 +13,16 @@ enum DataItemId
     MOTOR_SPEED_ID      = 4,
     MOTOR_CURRENT_ID    = 5,
 
-    // // Targets
-    MOTOR_TARGET_ID     = 6,
-    ACT_1_TARGET_ID     = 7,
-    ACT_2_TARGET_ID     = 8,
-    ACT_3_TARGET_ID     = 9,
+    // Targets
+    MAIN_MOTOR_TARGET_ID    = 6,
+    PEEP_MOTOR_TARGET_ID    = 7,
+    VALVE_IE_TARGET_ID      = 8,
+    TEST_TARGET_ID          = 9,
+
+    // State
+    BREATH_STATE_ID         = 10,
+    INSPI_TIME_ID           = 11,
+    EXPI_TIME_ID            = 12,
 };
 
 struct Datagram
@@ -38,7 +43,6 @@ public:
     ~DataItem();
 
     Datagram& get();
-    int32_t div();
     void set(int32_t val);
     void reset();
 
