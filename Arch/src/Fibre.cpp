@@ -45,7 +45,7 @@ void FibreManager::Run()
     }
 }
 
-void FibreManager::Add(Fibre* f)
+void FibreManager::Add(std::shared_ptr<Fibre> f)
 {
     fibres_.push_back(f);
 }

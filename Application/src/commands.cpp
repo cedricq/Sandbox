@@ -38,7 +38,7 @@ public:
     CommandFibre(): Fibre("CommandFibre")
     {
         FibreManager& thread = FibreManager::getInstance(THREAD_1MS_ID);
-        thread.Add(this);
+        thread.Add(std::shared_ptr<Fibre>(this));
     }
 
     virtual void Init()

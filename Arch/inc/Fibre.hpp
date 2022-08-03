@@ -2,6 +2,7 @@
 #define INC_FIBRE_HPP_
 
 #include <vector>
+#include <memory>
 
 class Fibre
 {
@@ -39,11 +40,11 @@ public:
 
     void Init();
     void Run();
-    void Add(Fibre* f);
+    void Add(std::shared_ptr<Fibre> f);
 
 private:
     FibreManager();
-    std::vector<Fibre*> fibres_;
+    std::vector<std::shared_ptr<Fibre>> fibres_;
 };
 
 #endif /* INC_FIBRE_HPP_ */

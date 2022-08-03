@@ -58,7 +58,7 @@ public:
     PrintFibre(): Fibre("PrintFibre")
     {
         FibreManager& mgr = FibreManager::getInstance(THREAD_POLLED_ID);
-        mgr.Add(this);
+        mgr.Add(std::shared_ptr<Fibre>(this));
     }
 
     virtual void Init()
