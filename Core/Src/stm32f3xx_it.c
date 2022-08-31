@@ -20,6 +20,7 @@
 
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "threads.hpp"
 #include "stm32f3xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -187,11 +188,17 @@ void PendSV_Handler(void)
 void SysTick_Handler(void)
 {
   /* USER CODE BEGIN SysTick_IRQn 0 */
-
+  static uint32_t cnt = 0;
   /* USER CODE END SysTick_IRQn 0 */
   HAL_IncTick();
   /* USER CODE BEGIN SysTick_IRQn 1 */
-  Tick_1ms();
+  tick_1ms();
+  cnt++;
+  if ( cnt % 10 == 0 )
+  {
+      tick_10ms();
+      cnt = 0;
+  }
   /* USER CODE END SysTick_IRQn 1 */
 }
 
