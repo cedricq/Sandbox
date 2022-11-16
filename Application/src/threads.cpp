@@ -16,7 +16,7 @@ void tick_polled()
 {
     static FibreManager& thread_polled = FibreManager::getInstance(THREAD_POLLED_ID);
     thread_polled.Run();
-    HAL_Delay(10);
+    //HAL_Delay(10);
 }
 
 void tick_1ms()
