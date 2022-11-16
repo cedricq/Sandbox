@@ -1,9 +1,17 @@
-set(CMAKE_CXX_STANDARD 14)
+set(PROJECT arch)
 
+set(APP_SOURCES
+    src/DataAccessor.cpp
+    src/Fibre.cpp
+	)
+add_library (${PROJECT} ${APP_SOURCES})
+target_include_directories (${PROJECT} PUBLIC inc)
 
-
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/inc)
-
-add_executable (architecture_test unit/Fibre_t.cpp src/Fibre.cpp)
-target_link_libraries(architecture_test gtest_main)
-add_test(architecture_test architecture_test)
+if(${TEST})
+set(APP_SOURCES
+    unit/Fibre_t.cpp
+	)	
+add_executable (arch_test unit/Fibre_t.cpp src/Fibre.cpp)
+target_link_libraries(arch_test gtest_main arch)
+add_test(arch_test arch_test) 
+endif()

@@ -1,7 +1,7 @@
 #ifndef ARC_DATAACCESSOR_HPP
 #define ARC_DATAACCESSOR_HPP
 
-#include "stm32f3xx_hal.h"
+#include <stdint.h>
 
 enum DataItemId
 {
