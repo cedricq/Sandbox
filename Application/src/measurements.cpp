@@ -176,7 +176,7 @@ public:
         static DataItem time(TIME_ID, true);
         time.set(time.get().value + 1 );
 
-        ReadQoutSensor();
+        //ReadQoutSensor();
         UpdateMeasurements();
     }
 };
